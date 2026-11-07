@@ -199,6 +199,21 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
 .wp-btns button{font-family:'Jua';font-size:15px;padding:7px 14px;border-radius:10px;border:2px solid #24323a;background:#fff;cursor:pointer;box-shadow:0 2px 0 #24323a}
 .shake{animation:wpShake .2s 2}
 @media (max-width:640px){ #phone{right:8px;bottom:56px;transform-origin:bottom right;scale:.82} #phone.hidden{transform:translateY(30px)} .wp-right{flex:1 1 100%} }
+/* 🎒 가방 */
+#bagBtn{position:relative}
+#bagBtn[data-n]:not([data-n=""])::after{content:attr(data-n);position:absolute;right:-6px;top:-6px;background:#d9483b;color:#fff;font-size:11px;border-radius:9px;padding:0 5px;border:2px solid #24323a;font-family:'Jua'}
+.bag-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.bag-slot{aspect-ratio:1;border:2px solid #24323a;border-radius:12px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;cursor:pointer;padding:2px;font-family:'Gowun Dodum';box-shadow:0 2px 0 #24323a}
+.bag-slot:hover{background:#fff6d6}
+.bag-slot.empty{background:repeating-linear-gradient(45deg,#f4ede0 0 6px,#efe6d6 6px 12px);box-shadow:none;border-style:dashed;border-color:#c9b99a;cursor:default}
+.bag-slot .bi{font-size:26px;line-height:1}.bag-slot .bn{font-size:10.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.bag-slot .bq{position:absolute;right:3px;top:2px;font-size:11px;font-family:'Jua';color:#d9483b}
+.bag-slot .bu{position:absolute;left:0;right:0;bottom:-1px;font-size:10px;background:#24323a;color:#ffe48a;border-radius:0 0 10px 10px;opacity:0;transition:opacity .15s}
+.bag-slot:hover .bu{opacity:1}
+.bag-gear{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.bag-gear div{background:#fff;border:2px solid #24323a;border-radius:10px;padding:5px 7px;display:grid;grid-template-columns:auto 1fr;column-gap:6px;align-items:center;font-size:12px}
+.bag-gear span{grid-row:span 2;font-size:22px}.bag-gear b{font-family:'Jua';font-weight:400}.bag-gear small{opacity:.75}
+@media (max-width:560px){ .bag-grid{grid-template-columns:repeat(4,1fr)} .bag-gear{grid-template-columns:repeat(2,1fr)} }
 </style>
 </head>
 <body>
@@ -212,6 +227,8 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
     <div class="stat" id="weather" title="오늘 날씨">☀️ 맑음</div>
     <div class="hud-sp"></div>
     <button class="iconbtn" id="adminBtn" title="관리자 패널" style="display:none">🛠️</button>
+    <button class="iconbtn" id="bagBtn" title="가방 (B)">🎒</button>
+    <button class="iconbtn" id="setBtn" title="설정 (닉네임·화질)">⚙️</button>
     <button class="iconbtn" id="phoneBtn" title="휴대폰 (P)">📱</button>
     <button class="iconbtn" id="soundBtn" title="소리">🔊</button>
     <button class="iconbtn" id="pauseBtn" title="일시정지">⏸</button>
@@ -354,7 +371,7 @@ function canvasTex(w, h, draw, rx=1, ry=1){
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   draw(c.getContext('2d'), w, h);
   const t = new THREE.CanvasTexture(c);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = 4;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = MAX_ANISO || 4;
   return t;
 }
 const FONT = n => `${n}px Jua, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif`;
@@ -874,6 +891,100 @@ function updateSparkles(){
     const tw = Math.max(0, Math.sin(T*2.4 + o.ph)); o.sp.material.opacity = on ? tw*.95 : 0; o.sp.scale.setScalar(o.sz*(.4 + tw*.8));
     if(tw < .02 && on){ o.sp.position.set(rnd(o.r[0] + .3, o.r[2] - .3), rnd(.9, 1.6), rnd(o.r[1] + .3, o.r[3] - .3)); } });
 }
+/* ======================= 🎒 가방 · ⚙️ 설정(닉네임·화질) ======================= */
+// 입력창에 글자를 칠 때는 게임 키(WASD·E 등)가 움직이지 않게 막아요 (가장 먼저 등록되는 리스너)
+const typing = e => !!(e.target && e.target.matches && e.target.matches('input, textarea'));
+document.addEventListener('keydown', e => { if(typing(e)) e.stopImmediatePropagation(); }); // 입력창이 먼저 받고, 게임(window) 키는 막아요
+const SET = (() => { let v = {}; try{ v = JSON.parse(localStorage.getItem('hbt_settings') || '{}') || {}; }catch(e){} return Object.assign({nick:'', quality:'sharp'}, v); })();
+function saveSettings(){ try{ localStorage.setItem('hbt_settings', JSON.stringify(SET)); }catch(e){} }
+const myName = () => (SET.nick || '').trim() || '나';
+function applyNameTag(){ if(PLAYER.tag) PLAYER.tag.querySelector('.me').textContent = `${myName()} (${S && S.role === 'customer' ? '손님' : '사장님'})`; }
+// ---------- 화질 ----------
+const QUALITY = {
+  ultra: {name:'💎 아주 선명', desc:'가장 또렷해요 (컴퓨터가 빨라야 해요)', pr: dpr => Math.min(3, Math.max(2, dpr*1.5)), shadow:4096},
+  sharp: {name:'✨ 선명',      desc:'또렷하고 부드러워요 (추천)',           pr: dpr => Math.min(2.25, Math.max(1.5, dpr*1.25)), shadow:2048},
+  fast:  {name:'⚡ 빠르게',     desc:'휴대폰·느린 컴퓨터용',                  pr: dpr => Math.min(1.25, dpr), shadow:1024}
+};
+var MAX_ANISO = 4; // var: 텍스처를 만들 때 언제든 읽을 수 있게
+function applyQuality(){
+  const q = QUALITY[SET.quality] || QUALITY.sharp, dpr = window.devicePixelRatio || 1;
+  if(!renderer) return;
+  MAX_ANISO = SET.quality === 'fast' ? 2 : renderer.capabilities.getMaxAnisotropy();
+  renderer.setPixelRatio(q.pr(dpr));
+  if(W.sun && W.sun.shadow.mapSize.x !== q.shadow){ W.sun.shadow.mapSize.set(q.shadow, q.shadow); if(W.sun.shadow.map){ W.sun.shadow.map.dispose(); W.sun.shadow.map = null; } }
+  const seen = new Set();
+  scene.traverse(o => { const ms = o.material ? [].concat(o.material) : []; ms.forEach(m => { ['map', 'emissiveMap'].forEach(k => { const t = m[k]; if(t && !seen.has(t)){ seen.add(t); t.anisotropy = MAX_ANISO; t.needsUpdate = true; } }); }); });
+  resize();
+}
+// ---------- 가방 ----------
+const BAG_MAX = 24;
+function bag(){ return S.bag || (S.bag = {}); }
+function bagCount(){ return Object.values(bag()).reduce((a, it) => a + it.qty, 0); }
+function bagAdd(it, n=1){
+  if(bagCount() + n > BAG_MAX){ toast(`🎒 가방이 꽉 찼어요 (최대 ${BAG_MAX}개)`); return false; }
+  const b = bag(); if(b[it.id]) b[it.id].qty += n; else b[it.id] = Object.assign({qty:n}, it);
+  renderBagBadge(); return true;
+}
+function renderBagBadge(){ const el = $('#bagBtn'); if(el) el.dataset.n = bagCount() || ''; }
+function eatEffect(fresh){ if(S.role === 'customer'){ gainFresh(fresh); updateHUD(); } S.buff.snack = true; renderBuffs(); return S.role === 'customer' ? `😊 개운함 +${fresh} · 🍢 걷는 속도 +15%` : '💪 힘이 나요! · 🍢 걷는 속도 +15%'; }
+function bagUse(id){
+  const it = bag()[id]; if(!it) return;
+  if(it.kind === 'food'){ it.qty--; const msg = eatEffect(it.fresh || 3); beep(520, .1, 'sine', .04); toast(`${it.ico} 냠냠! ${it.name} — ${msg}`); }
+  else if(it.kind === 'drink'){ it.qty--; const msg = eatEffect(it.fresh || 4); beep(600, .1, 'sine', .04); toast(`${it.ico} 꿀꺽! ${it.name} — ${msg}`); }
+  else { pop(PLAYER.tag, `${it.ico} ${it.name} 자랑하기!`); beep(880, .08, 'square', .03); }
+  if(it.qty <= 0) delete bag()[id];
+  renderBagBadge(); openBag();
+}
+function openBag(){
+  placePause();
+  const items = Object.values(bag()), car = S.myCar ? CAR_MODELS[S.myCar] : null;
+  const gear = [
+    ['📱', '휴대폰', S.security ? '방범 켜짐 🛡️' : '방범 꺼짐'],
+    ['🚗', '내 차', car ? `${car.icon} ${car.name}` : '초록 경차'],
+    ['💇', '머리', S.hair ? (HAIR_STYLES.find(h => h[0] === S.hair.style) || [0, '짧은 머리'])[1] : '짧은 머리'],
+    ['👓', '안경', PLAYER.glassG ? '쓰는 중' : '없음'],
+    ['🐾', '반려동물', S.pet ? ({dog:'🐶 강아지', cat:'🐱 고양이', hamster:'🐹 햄스터'})[S.pet] || S.pet : '없음'],
+    ['🏠', '집', S.premium ? '🏙️ 펜트하우스 + 행복아파트' : '행복아파트']
+  ];
+  const slots = [];
+  for(let i=0;i<Math.max(12, Math.ceil(items.length/6)*6);i++){
+    const it = items[i];
+    slots.push(it ? `<button class="bag-slot" data-id="${it.id}" title="${it.name}${it.desc ? ' · ' + it.desc : ''}"><span class="bi">${it.ico}</span><span class="bn">${it.name}</span>${it.qty > 1 ? `<b class="bq">×${it.qty}</b>` : ''}<span class="bu">${it.kind === 'food' ? '먹기' : it.kind === 'drink' ? '마시기' : '자랑'}</span></button>` : `<div class="bag-slot empty"></div>`);
+  }
+  showModal(`<h2>🎒 ${myName()}의 가방 <small style="font-size:14px;opacity:.7">${bagCount()}/${BAG_MAX}</small></h2>
+    <p style="font-size:13px;opacity:.75">음식 가게에서 '가방에 넣기'를 하면 여기 담겨요. 칸을 누르면 먹거나 꺼내 볼 수 있어요.</p>
+    <div class="bag-grid">${slots.join('')}</div>
+    <p style="font-family:Jua;margin:12px 0 6px">🧳 내 소지품</p>
+    <div class="bag-gear">${gear.map(([i, n, v]) => `<div><span>${i}</span><b>${n}</b><small>${v}</small></div>`).join('')}</div>`,
+    [['닫기', placeClose, 'primary']]);
+  document.querySelectorAll('.bag-slot[data-id]').forEach(b => b.onclick = () => bagUse(b.dataset.id));
+}
+// ---------- 설정 ----------
+function openSettings(){
+  placePause();
+  showModal(`<h2>⚙️ 설정</h2>
+    <p style="font-family:Jua;margin:8px 0 4px">😀 닉네임</p>
+    <div style="display:flex;gap:6px"><input id="nickIn" maxlength="8" placeholder="최대 8글자" value="${(SET.nick || '').replace(/"/g, '&quot;')}" style="flex:1;font-size:16px;padding:8px 10px;border:2px solid #24323a;border-radius:10px;font-family:'Gowun Dodum'">
+      <button class="btn" id="nickSave">저장</button></div>
+    <p style="font-size:12px;opacity:.7;margin:4px 0 0">내 캐릭터 머리 위 이름표에 보여요 · 지금: <b>${myName()}</b></p>
+    <p style="font-family:Jua;margin:14px 0 4px">🖥️ 화질</p>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${Object.entries(QUALITY).map(([k, q]) => `<button class="btn q-btn" data-q="${k}" style="${SET.quality === k ? 'background:#ffe48a' : ''}">${q.name}</button>`).join('')}</div>
+    <p style="font-size:12px;opacity:.7;margin:4px 0 0">${(QUALITY[SET.quality] || QUALITY.sharp).desc} · 화면 배율 ×${renderer.getPixelRatio().toFixed(2)}</p>
+    <p style="font-family:Jua;margin:14px 0 4px">🔊 소리</p>
+    <button class="btn" id="sndT">${sound ? '🔊 켜짐' : '🔇 꺼짐'}</button>`,
+    [['닫기', placeClose, 'primary']]);
+  const save = () => { const v = $('#nickIn').value.replace(/[<>]/g, '').trim().slice(0, 8); SET.nick = v; saveSettings(); applyNameTag(); sfx.coin(); toast(`😀 닉네임을 '${myName()}'(으)로 바꿨어요`); openSettings(); };
+  $('#nickSave').onclick = save;
+  $('#nickIn').addEventListener('keydown', e => { if(e.key === 'Enter') save(); });
+  document.querySelectorAll('.q-btn').forEach(b => b.onclick = () => { SET.quality = b.dataset.q; saveSettings(); applyQuality(); toast(`🖥️ 화질: ${QUALITY[SET.quality].name}`); openSettings(); });
+  $('#sndT').onclick = () => { sound = !sound; $('#soundBtn').textContent = sound ? '🔊' : '🔇'; openSettings(); };
+}
+function setupBagSettings(){
+  $('#bagBtn').addEventListener('click', () => { if(!modalOpen()) openBag(); });
+  $('#setBtn').addEventListener('click', () => { if(!modalOpen() || PLACE.open) openSettings(); });
+  window.addEventListener('keydown', e => { if(e.code === 'KeyB' && !modalOpen() && !SEC.open){ openBag(); } });
+  applyNameTag(); renderBagBadge(); applyQuality();
+}
 /* ======================= 📱 휴대폰 + 🛡️ 방범모드 + 월패드 ======================= */
 // HUD 📱 버튼 또는 P 키 → 휴대폰. '행복 방범' 앱에서 방범 켜기/끄기 (S.security).
 // 켠 채로 우리 집에 들어가면 월패드가 "침입이 감지되었습니다" 음성 + 빨간 경보 화면 → 비밀번호(1234) 또는 휴대폰 앱으로 해제
@@ -1021,7 +1132,7 @@ function setupPhone(){
       if(e.code === 'Enter' || e.code === 'NumpadEnter'){ e.preventDefault(); e.stopPropagation(); return wpKey('확인'); }
       if(e.code === 'Escape'){ return closeWallpad(); }
     }
-    if(e.code === 'KeyP' && !modalOpen()){ togglePhone(); }
+    if(e.code === 'KeyP' && !modalOpen() && !typing(e)){ togglePhone(); }
   }, true);
   setInterval(renderPhoneClock, 1000);
   buildWallpad3D();
@@ -1226,7 +1337,7 @@ const ACTS = {
   vitamin: {label:'💊 비타민 사 먹기 · 2,000원', cost:2000, run: pl => result(pl, '💊 비타민 충전!', funReward(pl, 'vitamin', 6))},
   flower:  {label:'💐 꽃다발 사기 · 5,000원', cost:5000, run: pl => result(pl, '💐 향기로운 꽃다발', S.role === 'customer' ? funReward(pl, 'flower', 6) : '대기실에 꽃을 꽂았어요. ' + funReward(pl, 'flower', 12))},
   acupun:  {label:'🌿 침 맞기 · 6,000원', cost:6000, run: pl => result(pl, '🌿 몸이 가벼워졌어요', funReward(pl, 'acupun', 12))},
-  gacha:   {label:'🎁 뽑기 · 1,000원', cost:1000, run: pl => { const g = pick(['🧸 곰돌이 키링','⭐ 반짝 스티커','🦆 고무 오리','🎈 풍선','🍬 사탕 한 봉지','🏆 황금 지우개 (대박!)']); result(pl, '🎁 뽑기 결과', `<b>${g}</b> 당첨! ${funReward(pl, 'gacha', g.includes('대박') ? 8 : 3)}`); }},
+  gacha:   {label:'🎁 뽑기 · 1,000원', cost:1000, run: pl => { const g = pick(['🧸 곰돌이 키링','⭐ 반짝 스티커','🦆 고무 오리','🎈 풍선','🍬 사탕 한 봉지','🏆 황금 지우개 (대박!)']); const [gi, ...gn] = g.split(' '); bagAdd({id:'toy_' + gn.join(''), ico:gi, name:gn.join(' '), kind:'toy', desc:'뽑기 상품'}); result(pl, '🎁 뽑기 결과', `<b>${g}</b> 당첨! 🎒 가방에 넣었어요. ${funReward(pl, 'gacha', g.includes('대박') ? 8 : 3)}`); }},
   bank:    {label:'🧾 통장 정리 (이자 받기)', run: pl => { S.bankDay = S.bankDay || 0; if(S.bankDay === S.day) return result(pl, '🏦 행복 은행', '오늘 이자는 이미 받았어요.'); S.bankDay = S.day; const it = Math.min(10000, Math.round(S[wKey()]*.01/100)*100); S[wKey()] += it; updateHUD(); sfx.coin(); result(pl, '🏦 이자가 들어왔어요', `통장 잔고의 1% → <b>+${won(it)}원</b> (최대 1만 원, 하루 1번)`); }},
   realty:  {label:'📋 매물 구경하기', run: pl => result(pl, '🏠 행복 부동산 추천 매물', `<ul><li>🏙️ 프리미엄 펜트하우스 — ${won(premPrice())}원 ${S.premium ? '(구매 완료 ✅)' : ''}</li><li>🏠 행복아파트 — 지금 사는 우리 집</li><li>🚗 행복모터스 신차 — 40만 원부터</li></ul>${funReward(pl, 'realty', 2)}`)},
   coffee:  {label:'☕ 상담 커피 마시기 (무료)', run: pl => result(pl, '☕ 고소한 커피 한 잔', '영업사원: "천천히 구경하세요~ 차 옆에서 E를 누르면 자세히 볼 수 있어요!" ' + funReward(pl, 'coffee', 2))},
@@ -1349,9 +1460,10 @@ function openMenu(pl){
   const menu = MENUS[pl.name] || [];
   const btns = menu.map(([ico, name, cost, fresh]) => [`${ico} ${name} · ${won(cost)}원`, () => {
     if(!payCost(cost)) return;
-    let eff; if(S.role === 'customer'){ gainFresh(fresh); updateHUD(); eff = `😊 개운함 +${fresh}`; } else eff = '💪 힘이 나요!';
-    S.buff.snack = true; renderBuffs();
-    result(pl, `${ico} 냠냠! ${name}`, `${pick(['정말 맛있어요!', '이 집 맛집이네요 👍', '배가 든든해요~'])} ${eff} · 🍢 오늘 걷는 속도 +15%`);
+    showModal(`<h2>${ico} ${name}</h2><p>바로 먹을까요, 🎒 가방에 넣어 두고 나중에 먹을까요?</p>`, [
+      ['😋 바로 먹기', () => result(pl, `${ico} 냠냠! ${name}`, `${pick(['정말 맛있어요!', '이 집 맛집이네요 👍', '배가 든든해요~'])} ${eatEffect(fresh)}`), 'primary'],
+      ['🎒 가방에 넣기', () => { if(bagAdd({id:'food_' + name, ico, name, kind:'food', fresh, desc:`개운함 +${fresh}`})) result(pl, '🎒 가방에 쏙!', `${ico} ${name}을(를) 가방에 넣었어요. <b>B</b> 키나 🎒 버튼으로 꺼내 먹어요.`); else { S[wKey()] += cost; updateHUD(); openMenu(pl); } }]
+    ]);
   }]);
   btns.push(['↩️ 뒤로', () => openPlace(pl)]);
   showModal(`<h2>${pl.cfg.icon} ${pl.name} 메뉴판</h2><p>뭘 먹을까요? <small>(가진 돈 ${won(S[wKey()])}원)</small></p>`, btns);
@@ -3333,7 +3445,7 @@ function applyRoleLook(){
   const top = M(cust ? sp.skin : '#2b5f86');
   b.torsoM.material = b.shM.material = b.armLM.material = b.armRM.material = top;
   b.towelM.material = M(cust ? '#ffffff' : '#2b5f86');
-  PLAYER.tag.querySelector('.me').textContent = cust ? '나 (손님)' : '나 (사장님)';
+  applyNameTag();
   document.body.classList.toggle('role-customer', cust);
   applyStoreRole();
 }
@@ -4484,6 +4596,7 @@ function init(){
   });
   $('#soundBtn').addEventListener('click', () => { sound = !sound; $('#soundBtn').textContent = sound ? '🔊' : '🔇'; });
   setupPhone();
+  setupBagSettings();
   document.addEventListener('keydown', e => { if(e.key==='Escape') setSelected(null); });
   $('#loading').remove();
   showTitle();

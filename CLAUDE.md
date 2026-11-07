@@ -69,6 +69,7 @@
 14. **역할**: `startRole`, `applyRoleLook`, `useFacility/finishMe`(손님이 직접 이용), `autoManage`
 15. **프리미엄**: `PREM_PRICE = 1,000,000`, `premDoor`, `enterPrem/exitPrem`, `soakJacuzzi`, 숙면 보너스(`S.sleptPrem`)
 16. **관리자**: `ADMIN`, `openAdmin`, `adminAction`
+16-6. **🎒 가방 · ⚙️ 설정**: HUD `#bagBtn`(B 키) → `openBag()`, `S.bag`(id → {ico,name,qty,kind:'food'|'drink'|'toy',fresh}), `bagAdd/bagUse`, 최대 `BAG_MAX`=24. 음식 메뉴에서 '😋 바로 먹기 / 🎒 가방에 넣기', 문구점 뽑기 상품은 자동으로 가방에. 소지품(휴대폰·차·머리·안경·펫·집)도 표시. HUD `#setBtn` → `openSettings()`: 닉네임(`SET.nick`, 최대 8자, 이름표 `applyNameTag`/`myName`), 화질 `QUALITY`(ultra/sharp/fast → `applyQuality`: pixelRatio 슈퍼샘플링·텍스처 anisotropy `MAX_ANISO`·그림자 해상도), 소리. 설정은 `localStorage['hbt_settings']`(try/catch). 입력창에 글자 칠 때 게임 키 막기: `typing(e)` + document keydown 가드.
 16-5. **📱 휴대폰 + 🛡️ 방범모드 + 월패드**: `SEC`, HUD `#phoneBtn`/P 키 → `togglePhone`·`renderPhone`(앱: 행복 방범·날씨·지갑·알림). `setSecurity(on, by)` → `S.security`, 기록 `S.secLog`. 켠 채로 `enterHome()` → `triggerAlarm()`: `#wallpad` 빨간 경보 화면 + 사이렌 + 음성(`speak()`, speechSynthesis ko-KR) "침입이 감지되었습니다". 해제: 월패드 키패드 비밀번호 `SEC.code`='1234'(키보드 숫자·Enter도 됨) 또는 휴대폰 앱. 집 안 현관 옆 3D 월패드(`buildWallpad3D`, E로 열기). 경보 중엔 게임 일시정지.
 16-4. **행복탕 리모델링·코코아 자판기**: `BATH`, `buildBathUpgrade()`(buildOutside 끝), `updateBath`. 기본 장식(네온 간판 테두리·홍등·화분·벽시계·대기실 TV·모자이크 띠). 상점 `UPG` 'remodel'(최대 3단계, 요금 +10%·만족도 +4/단계): 1 금빛 장식·방석·굴뚝 SPA 간판 / 2 실내 폭포·대나무 / 3 샹들리에·레드카펫·별 명판 (`BATH.lvG` 보이기). 코코아 자판기 (7.6, 2.0): `nearCocoa/useCocoa`, 손님이 나갈 때 `cocoaSale`(사장 모드, 1,500원, 비·눈 오면 더 잘 팔림), `S.cocoa` 매일 아침 12잔.
 16-3. **건물마다 일·활동**: `PLACES`(상호작용 지점, `addPlace(name,x,z,room,r)`·`buildPlaces()`), 설정 `PLACE_T`(건물 이름 → 아이콘·알바 그림 4개·활동 목록), `MENUS`(음식), `ACTS`(활동). E → `openPlace()` 메뉴. 💼 알바 `runJob`(주문 맞추기 20초, 건물마다 하루 1번 `S.jobDay`), 🎮 PC방 `runAim`, 🎤 노래방 `runKaraoke`(D F J K 리듬), 📝 학원 `runQuiz`, 💇 미용실 `openSalon`→`setPlayerHair`(`S.hair`), 👓 `setPlayerGlasses`, 🍽️ `openMenu`(먹으면 `S.buff.snack` 속도 +15%). 활동 보상 `funReward`(손님: 개운함 / 사장: 평판, 활동마다 하루 1번 `S.funDay`). 미니게임 정리 `mgStop`, 일시정지 `placePause/placeClose`. 편의점·천원샵·펫샵은 장바구니가 빈 채로 계산대에서 E → 알바.
@@ -138,3 +139,4 @@
 22. 관리자 패널 돈 NaN 버그 수정, 📱 휴대폰(방범 앱)·월패드 침입 경보(음성)
 23. 포스터(`poster/`), 다시 시작 버튼 제거(게임 오버 없음·7일 뒤 계속하기)
 24. 광택: 타일·물·차에 반사 광택, 깨끗한 시설 위 반짝이 ✨
+25. 🎒 가방 시스템, ⚙️ 설정(닉네임 변경·화질 3단계·소리), 화질 선명하게(슈퍼샘플링·텍스처 선명도)

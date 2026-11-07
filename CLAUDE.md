@@ -68,6 +68,7 @@
 14. **역할**: `startRole`, `applyRoleLook`, `useFacility/finishMe`(손님이 직접 이용), `autoManage`
 15. **프리미엄**: `PREM_PRICE = 1,000,000`, `premDoor`, `enterPrem/exitPrem`, `soakJacuzzi`, 숙면 보너스(`S.sleptPrem`)
 16. **관리자**: `ADMIN`, `openAdmin`, `adminAction`
+16-3. **건물마다 일·활동**: `PLACES`(상호작용 지점, `addPlace(name,x,z,room,r)`·`buildPlaces()`), 설정 `PLACE_T`(건물 이름 → 아이콘·알바 그림 4개·활동 목록), `MENUS`(음식), `ACTS`(활동). E → `openPlace()` 메뉴. 💼 알바 `runJob`(주문 맞추기 20초, 건물마다 하루 1번 `S.jobDay`), 🎮 PC방 `runAim`, 🎤 노래방 `runKaraoke`(D F J K 리듬), 📝 학원 `runQuiz`, 💇 미용실 `openSalon`→`setPlayerHair`(`S.hair`), 👓 `setPlayerGlasses`, 🍽️ `openMenu`(먹으면 `S.buff.snack` 속도 +15%). 활동 보상 `funReward`(손님: 개운함 / 사장: 평판, 활동마다 하루 1번 `S.funDay`). 미니게임 정리 `mgStop`, 일시정지 `placePause/placeClose`. 편의점·천원샵·펫샵은 장바구니가 빈 채로 계산대에서 E → 알바.
 16-2. **행복모터스 (자동차 매장)**: 가상 브랜드(실제 브랜드 흉내 금지). `CAR_MODELS`(누리 세단·한빛 SUV·별빛 EV·번개 GT — 값·최고속도 `vmax`·가속 `acc`·색 3가지), `makeModelCar(id, color)`(ExtrudeGeometry 차체·유리 캐빈·알로이 휠, 앞 = +x), `DEALER`·`buildDealer()`(x 62.5~82.5, z -4~6.4, 유리 쇼룸·회전 전시대·LED 화면·상담 데스크·기둥 간판), `updateDealer`, `nearShowCar`/`showCarModal`(E로 살펴보기·색 바꾸기·구매), `setMyCar`(내 차 교체 → `DRIVE.vmax/acc/wheels`, `S.myCar`, `S.cars`). 손님 모드 가격은 30%.
 16-1. **서울 풍경**: `SEOUL`, `buildSeoul()`(`buildOutside` 끝에서 호출), `updateSeoul(dt)`(루프에서 `updateTraffic` 다음). 한강공원(은행나무·벤치·돗자리·공공자전거·지하철역 입구·안내판), 한강(물결 텍스처 흐름·오리배·유람선), 빨간 아치 다리(x -20, 밤 무지개 분수), 강 건너 고가 지하철, 스카이라인(`skyscraper`, `skyTex` — 밤에 창문 빛남), 초고층 타워, 남산+서울 타워(깜빡이는 빨간 불), 먼 산, 인도 위 파란 도로 표지판(x -30.5)
 17. **날씨 효과**: `buildWeatherFx`, `updateWeather`(밤 조명·가로등·창문 불빛도 여기서 처리)
@@ -127,3 +128,4 @@
 16. 서울 도시 풍경: 한강공원·한강·아치 다리·오리배·유람선·고가 지하철·스카이라인 야경·남산 서울 타워·도로 표지판
 17. 도로 연장: 동네 길 x ±130, 길가 상가·세로 간판·은행나무·가로등, 차 수 늘림. GitHub Pages 배포
 18. 행복모터스 자동차 매장(가상 브랜드): 고급 차 모델 4종, 회전 전시대, 차 구매 → 내 차 교체(속도·가속 다름). 실내 방 좌표 +300 이동
+19. 모든 건물에서 알바·활동: PC방 게임, 코인 노래방 리듬 게임, 미용실 헤어(8스타일×8색), 분식·치킨·카페·빵집 등 음식, 학원 퀴즈, 안경점, 은행 이자, 한강 자전거·지하철 등

@@ -763,15 +763,284 @@ function buildRoadExt(){
         (W.nightGlow = W.nightGlow || []).push(vs.material); box(.06,.06,.45,M('#5b6670'),x+2.6,h-.7,z+d/2+.22);
       }
       OBST.push([x-3.2, z-d/2-.1, x+3.2, z+d/2+.1]);
+      addPlace(name, x, 7.45);
     }
   });
   buildDealer();
+  buildPlaces();
   // 도로 끝 표지판
   [[-112, '← 시내 방향'], [112, '외곽 방향 →']].forEach(([x, t]) => {
     sbox(.15, 3.4, .15, '#8a939b', x, 1.7, 9.7);
     plane(2.6, .8, new THREE.MeshLambertMaterial({map:textTex(t,{w:384,h:120,bg:'#1f5fae',fg:'#ffffff',border:'#ffffff',font:50})}), x, 3.1, 9.8);
     OBST.push([x-.2, 9.55, x+.2, 9.85]);
   });
+}
+/* ======================= 건물마다 일·활동 (알바 미니게임·PC방·노래방·미용실·분식 등) ======================= */
+// PLACES: 건물 앞(또는 방 안)의 상호작용 지점. 가까이 가서 E → openPlace() 메뉴 (💼 알바 + 활동들)
+// 알바는 건물마다 하루 1번, 활동 보상(개운함/평판)도 활동마다 하루 1번 (돈 쓰는 음식은 매번 효과)
+const PLACES = [];
+const PLACE = {open:false, was:false};
+const MG = {raf:0, iv:0, keys:null, done:true};
+const shuf = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
+const PLACE_T = { // 건물 종류 설정
+  '세탁소':     {icon:'👔', job:['세탁물 정리', ['👔','👗','🧥','🧦']], acts:['laundry']},
+  '분식':       {icon:'🍢', job:['분식 서빙', ['🍢','🍙','🌭','🥟']], acts:['food']},
+  '행복 부동산': {icon:'🏠', job:['전단지 정리', ['🏠','🏢','🔑','📄']], acts:['realty']},
+  '약국':       {icon:'💊', job:['약 정리', ['💊','🩹','🧴','🌡️']], acts:['vitamin']},
+  '행복 치킨':   {icon:'🍗', job:['치킨 포장', ['🍗','🍟','🥤','🧂']], acts:['food']},
+  '동네 카페':   {icon:'☕', job:['바리스타', ['☕','🧋','🍰','🥐']], acts:['food']},
+  '코인 노래방': {icon:'🎤', job:['방 청소', ['🎤','🥤','📀','🧹']], acts:['karaoke']},
+  'PC방':       {icon:'🖥️', job:['PC방 카운터', ['🍜','🥤','🎧','🖱️']], acts:['pcgame', 'food']},
+  '미용실':     {icon:'💇', job:['미용 보조', ['✂️','🧴','🪮','💈']], acts:['salon']},
+  '꽃집':       {icon:'💐', job:['꽃다발 포장', ['🌹','🌷','🌻','💐']], acts:['flower']},
+  '수학 학원':   {icon:'📘', job:['채점 알바', ['📘','✏️','📐','📝']], acts:['quiz'], unit:600},
+  '정육점':     {icon:'🥩', job:['고기 포장', ['🥩','🍖','🥓','🍗']], acts:['food']},
+  '빵집':       {icon:'🥐', job:['빵 진열', ['🥐','🍞','🥖','🧁']], acts:['food']},
+  '안경점':     {icon:'👓', job:['안경 닦기', ['👓','🕶️','🔍','🧽']], acts:['glasses']},
+  '행복 은행':   {icon:'🏦', job:['창구 업무', ['💵','💳','🪙','📄']], acts:['bank'], unit:600},
+  '문구점':     {icon:'✏️', job:['문구 진열', ['✏️','📒','✂️','📎']], acts:['gacha']},
+  '세탁방':     {icon:'🧺', job:['빨래 개기', ['👕','👖','🧦','🧺']], acts:['laundry']},
+  '한의원':     {icon:'🌿', job:['약재 정리', ['🌿','🍵','🩺','🫚']], acts:['acupun']},
+  '국밥집':     {icon:'🍲', job:['국밥 서빙', ['🍲','🍚','🥢','🌶️']], acts:['food']},
+  '행복모터스':  {icon:'🚗', job:['세차 알바', ['🚗','🧽','🔧','🔑']], acts:['coffee'], unit:700},
+  '주차장 관리실':{icon:'🅿️', job:['주차 안내', ['🚗','🎫','🅿️','🔑']], acts:[]},
+  '우리 집':     {icon:'🏠', job:['재택 부업 (인형 눈 붙이기)', ['🧸','👀','🧵','📦']], acts:['tv']},
+  '펜트하우스':  {icon:'🏙️', job:['온라인 강의 촬영', ['🎥','💡','🎙️','💻']], acts:['bigtv'], unit:700},
+  '공공자전거':  {icon:'🚲', job:['자전거 정비', ['🚲','🔧','🛞','🔩']], acts:['bike']},
+  '한강공원역':  {icon:'🚇', job:['역 안내', ['🚇','🎫','🗺️','🧳']], acts:['subway']},
+  '편의점':     {icon:'🏪', job:['편의점 계산', ['🍙','🥤','🍫','🧃']], acts:[]},
+  '천원샵':     {icon:'🛍️', job:['물건 진열', ['🧴','🧽','🪣','📦']], acts:[]},
+  '펫샵':       {icon:'🐾', job:['동물 돌보기', ['🐶','🐱','🦴','🐟']], acts:[]}
+};
+PLACE_T['떡볶이'] = PLACE_T['분식'];
+const MENUS = {
+  '분식':     [['🍢','떡볶이',4000,8],['🥢','순대',3500,7],['🍙','김밥',3000,6],['🍡','어묵 꼬치',1000,3],['🍤','튀김',3000,6]],
+  '행복 치킨': [['🍗','후라이드 치킨',18000,15],['🔥','양념 치킨',19000,16],['🥤','콜라',2000,3]],
+  '동네 카페': [['☕','아메리카노',3000,5],['🥛','카페라떼',4000,6],['🍰','딸기 케이크',6000,8],['🧋','버블티',5000,7]],
+  'PC방':     [['🍜','PC방 라면',4000,7],['🥤','에이드',3000,4]],
+  '정육점':   [['🥩','삼겹살 구이',12000,12],['🍖','양념 갈비',15000,14]],
+  '빵집':     [['🥐','소금빵',3000,5],['🍞','크림빵',2500,4],['🧁','컵케이크',3500,5]],
+  '국밥집':   [['🍲','돼지국밥',9000,12],['🥘','순대국',9000,12],['🍚','공깃밥',1000,2]]
+};
+MENUS['떡볶이'] = MENUS['분식'];
+function addPlace(name, x, z, room=null, r=2.0){ const cfg = PLACE_T[name]; if(!cfg) return; PLACES.push({key:name + '@' + Math.round(x), name, cfg, x, z, room, r}); }
+function buildPlaces(){
+  addPlace('세탁소', -14.5, -4.1); addPlace('떡볶이', -14.5, 1.5); addPlace('행복 부동산', 15, -1.2); addPlace('약국', 14.5, 7.8);
+  addPlace('행복모터스', 66.4, 5.3); addPlace('주차장 관리실', 42.75, 7.9);
+  addPlace('우리 집', HX - 3.1, -1.2, 'home', 1.4); addPlace('펜트하우스', 426.5, 1.0, 'prem', 1.5);
+  addPlace('공공자전거', 13, -28.2); addPlace('한강공원역', -30, -23.6, null, 2.4);
+  BUFF_ITEMS.push({id:'snack', ico:'🍢', name:'든든한 배', desc:'오늘 걷는 속도 +15%'});
+}
+function nearPlace(){
+  if(DRIVE.active || PLAYER.using || PLAYER.inStore) return null;
+  const room = PLAYER.inHome ? 'home' : PLAYER.inPrem ? 'prem' : null;
+  let best = null, bd = 9;
+  PLACES.forEach(p => { if(p.room !== room) return; const d = Math.hypot(PLAYER.x - p.x, PLAYER.z - p.z); if(d < p.r && d < bd){ bd = d; best = p; } });
+  return best;
+}
+function storePlace(){ const n = curShop().name; return {key:'store@' + PLAYER.shop, name:n, cfg:PLACE_T[n]}; }
+const wKey = () => S.role === 'customer' ? 'wallet' : 'money';
+function payCost(cost){ if(!cost) return true; if(S[wKey()] < cost){ toast(`돈이 모자라요 💸 (${won(cost)}원 필요)`); return false; } S[wKey()] -= cost; updateHUD(); sfx.coin(); return true; }
+function funReward(pl, id, n){ // 하루 1번만 보상
+  S.funDay = S.funDay || {}; const k = pl.key + ':' + id;
+  if(S.funDay[k] === S.day) return '오늘은 이미 보상을 받았어요 (그래도 재밌었어요!)';
+  S.funDay[k] = S.day;
+  if(S.role === 'customer'){ gainFresh(n); updateHUD(); return `😊 개운함 +${n}`; }
+  const r = Math.round(n*.004*100)/100; S.rep = Math.min(5, S.rep + r); updateHUD(); return `⭐ 기분 전환! 평판 +${r.toFixed(2)}`;
+}
+function placePause(){ if(!PLACE.open){ PLACE.was = S.paused; S.paused = true; PLACE.open = true; } }
+function placeClose(){ mgStop(); PLACE.open = false; S.paused = PLACE.was; hideModal(); }
+function mgStop(){ MG.done = true; cancelAnimationFrame(MG.raf); clearInterval(MG.iv); MG.raf = MG.iv = 0; if(MG.keys){ window.removeEventListener('keydown', MG.keys, true); MG.keys = null; } }
+const ACTS = {
+  food:    {label:'🍽️ 음식 사 먹기', run: pl => openMenu(pl)},
+  pcgame:  {label:'🎮 게임하기 · 1,500원', cost:1500, run: pl => runAim(pl, '👾 우주 침공 막기')},
+  bigtv:   {label:'🎮 대형 TV로 게임하기 (무료)', run: pl => runAim(pl, '🎮 펜트하우스 게임 타임')},
+  karaoke: {label:'🎤 노래 부르기 · 2,000원', cost:2000, run: pl => runKaraoke(pl)},
+  salon:   {label:'✂️ 머리하기 · 10,000원', run: pl => openSalon(pl)},
+  quiz:    {label:'📝 수학 수업 듣기 (퀴즈)', run: pl => runQuiz(pl)},
+  glasses: {label:'👓 안경 맞추기', run: pl => openGlasses(pl)},
+  laundry: {label:'🧺 수건 빨래 맡기 · 3,000원', cost:3000, run: pl => { S.buff.towel = true; renderBuffs(); result(pl, '🧺 뽀송뽀송!', `오늘 손님 수건이 뽀송해요 (만족도 +10). ${funReward(pl, 'laundry', 4)}`); }},
+  vitamin: {label:'💊 비타민 사 먹기 · 2,000원', cost:2000, run: pl => result(pl, '💊 비타민 충전!', funReward(pl, 'vitamin', 6))},
+  flower:  {label:'💐 꽃다발 사기 · 5,000원', cost:5000, run: pl => result(pl, '💐 향기로운 꽃다발', S.role === 'customer' ? funReward(pl, 'flower', 6) : '대기실에 꽃을 꽂았어요. ' + funReward(pl, 'flower', 12))},
+  acupun:  {label:'🌿 침 맞기 · 6,000원', cost:6000, run: pl => result(pl, '🌿 몸이 가벼워졌어요', funReward(pl, 'acupun', 12))},
+  gacha:   {label:'🎁 뽑기 · 1,000원', cost:1000, run: pl => { const g = pick(['🧸 곰돌이 키링','⭐ 반짝 스티커','🦆 고무 오리','🎈 풍선','🍬 사탕 한 봉지','🏆 황금 지우개 (대박!)']); result(pl, '🎁 뽑기 결과', `<b>${g}</b> 당첨! ${funReward(pl, 'gacha', g.includes('대박') ? 8 : 3)}`); }},
+  bank:    {label:'🧾 통장 정리 (이자 받기)', run: pl => { S.bankDay = S.bankDay || 0; if(S.bankDay === S.day) return result(pl, '🏦 행복 은행', '오늘 이자는 이미 받았어요.'); S.bankDay = S.day; const it = Math.min(10000, Math.round(S[wKey()]*.01/100)*100); S[wKey()] += it; updateHUD(); sfx.coin(); result(pl, '🏦 이자가 들어왔어요', `통장 잔고의 1% → <b>+${won(it)}원</b> (최대 1만 원, 하루 1번)`); }},
+  realty:  {label:'📋 매물 구경하기', run: pl => result(pl, '🏠 행복 부동산 추천 매물', `<ul><li>🏙️ 프리미엄 펜트하우스 — ${won(premPrice())}원 ${S.premium ? '(구매 완료 ✅)' : ''}</li><li>🏠 행복아파트 — 지금 사는 우리 집</li><li>🚗 행복모터스 신차 — 40만 원부터</li></ul>${funReward(pl, 'realty', 2)}`)},
+  coffee:  {label:'☕ 상담 커피 마시기 (무료)', run: pl => result(pl, '☕ 고소한 커피 한 잔', '영업사원: "천천히 구경하세요~ 차 옆에서 E를 누르면 자세히 볼 수 있어요!" ' + funReward(pl, 'coffee', 2))},
+  tv:      {label:'📺 TV 보기', run: pl => result(pl, '📺 오늘의 예능 시청', pick(['웃겨서 배꼽 빠지는 줄!', '목욕탕 맛집 소개에 행복탕이 나왔어요!', '드라마 결말이 궁금해요…']) + ' ' + funReward(pl, 'tv', 4))},
+  bike:    {label:'🚲 한강 자전거 타기 · 1,000원', cost:1000, run: pl => result(pl, '🚲 한강 바람 시원해요!', funReward(pl, 'bike', 8))},
+  subway:  {label:'🚇 지하철 타고 시내 구경 · 1,500원', cost:1500, run: pl => result(pl, '🚇 시내 나들이', pick(['남산 타워 전망대에 다녀왔어요 🗼', '시장에서 호떡을 먹었어요 🥞', '고궁 산책을 했어요 🏯']) + ' ' + funReward(pl, 'subway', 10))}
+};
+function openPlace(pl){
+  placePause(); mgStop();
+  const c = pl.cfg, worked = (S.jobDay || {})[pl.key] === S.day;
+  const btns = [[worked ? '💼 알바 (오늘 완료 ✅)' : `💼 알바하기 · ${c.job[0]}`, () => worked ? toast('오늘은 여기서 이미 일했어요. 내일 또 와요!') : runJob(pl), 'primary']];
+  c.acts.forEach(id => { const a = ACTS[id]; btns.push([a.label, () => { if(a.cost && !payCost(a.cost)) return; a.run(pl); }]); });
+  btns.push(['닫기', placeClose]);
+  const money = S.role === 'customer' ? `지갑 ${won(S.wallet)}원 · 개운함 ${Math.round(S.fresh)}` : `가진 돈 ${won(S.money)}원 · 평판 ${S.rep.toFixed(1)}`;
+  showModal(`<h2>${c.icon} ${pl.name}</h2><p>무엇을 할까요? <small>(${money})</small></p>
+    <p style="font-size:13px;opacity:.75">💼 알바는 가게마다 하루 1번 · 주문과 같은 그림을 빨리 누르면 돈을 벌어요</p>`, btns);
+}
+function result(pl, title, body){
+  mgStop();
+  showModal(`<h2>${title}</h2><p>${body}</p>`, [['↩️ 다른 것도 하기', () => openPlace(pl), 'primary'], ['닫기', placeClose]]);
+}
+const mgBar = () => `<div style="display:flex;justify-content:space-between;font-family:Jua;font-size:18px;margin:6px 0"><span id="mgT">20.0초</span><span id="mgS">0</span></div>`;
+function mgTimer(dur, onTick, onEnd){
+  const t0 = performance.now(); MG.done = false; MG.pen = 0;
+  MG.iv = setInterval(() => { if(MG.done) return; const left = Math.max(0, dur - (performance.now() - t0) - MG.pen); const el = $('#mgT'); if(el) el.textContent = (left/1000).toFixed(1) + '초'; onTick && onTick(left); if(left <= 0) onEnd(); }, 100);
+}
+// ---------- 💼 알바: 주문 맞추기 ----------
+function runJob(pl){
+  const items = pl.cfg.job[1], unit = pl.cfg.unit || 500; let score = 0, order = pick(items);
+  showModal(`<h2>💼 ${pl.name} — ${pl.cfg.job[0]}</h2><p>위에 나온 주문과 <b>같은 그림</b>을 빨리 눌러요! 틀리면 1초 감점 (20초)</p>${mgBar()}
+    <div id="mgOrder" style="font-size:72px;text-align:center;line-height:1.1">${order}</div>
+    <div id="mgBtns" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px"></div>`, [['그만하고 정산', () => finish()]]);
+  const box_ = $('#mgBtns');
+  const draw = () => { box_.innerHTML = ''; shuf(items).forEach(it => { const b = document.createElement('button'); b.className = 'btn big'; b.style.fontSize = '34px'; b.textContent = it;
+    b.onclick = () => { if(MG.done) return; if(it === order){ score++; beep(620 + (score%8)*60, .06, 'square', .03); order = pick(items.filter(x => x !== order)); $('#mgOrder').textContent = order; }
+      else { MG.pen += 1000; beep(150, .18, 'sawtooth', .04); }
+      $('#mgS').textContent = `${score}개 · ${won(score*unit)}원`; draw(); };
+    box_.appendChild(b); }); };
+  draw(); $('#mgS').textContent = `0개 · 0원`;
+  const finish = () => { if(MG.done && MG.iv === 0) return; mgStop(); const n = score*unit; S[wKey()] += n; (S.jobDay = S.jobDay || {})[pl.key] = S.day; updateHUD(); if(n) sfx.coin();
+    result(pl, '💼 알바 끝! 수고했어요', `${score}개 성공 → <b>+${won(n)}원</b> 벌었어요 ${score >= 15 ? '🏆 에이스 알바생!' : score >= 8 ? '👍 잘했어요!' : '🙂 내일은 더 잘할 수 있어요'}`); };
+  mgTimer(20000, null, finish);
+}
+// ---------- 🎮 PC방: 우주 침공 막기 (에임 게임) ----------
+function runAim(pl, title){
+  showModal(`<h2>${title}</h2><p>나타나는 👾 외계인을 빨리 눌러서 물리쳐요! (20초)</p>${mgBar()}
+    <canvas id="mgCv" width="420" height="260" style="width:100%;border-radius:12px;border:3px solid #24323a;background:#0d1226;touch-action:none;cursor:crosshair"></canvas>`, [['그만하기', () => finish()]]);
+  const cv = $('#mgCv'), g = cv.getContext('2d'), tg = [], stars = Array.from({length:40}, () => [Math.random()*420, Math.random()*260, Math.random()*1.5 + .5]);
+  let score = 0, spawn = 0, last = performance.now(), fx = [];
+  cv.addEventListener('pointerdown', e => { if(MG.done) return; const r = cv.getBoundingClientRect(), x = (e.clientX - r.left)*420/r.width, y = (e.clientY - r.top)*260/r.height;
+    for(let i=tg.length-1;i>=0;i--){ const t = tg[i]; if(Math.hypot(x - t.x, y - t.y) < t.r + 6){ tg.splice(i, 1); score++; fx.push({x:t.x, y:t.y, a:1}); beep(880 + score*15, .05, 'square', .03); $('#mgS').textContent = `💥 ${score}마리`; return; } }
+    beep(200, .05, 'triangle', .02); });
+  const frame = now => { if(MG.done) return; const dt = (now - last)/1000; last = now; spawn -= dt;
+    if(spawn <= 0){ spawn = rnd(.35, .7); tg.push({x:rnd(30, 390), y:rnd(30, 230), r:rnd(18, 26), life:1.4, vx:rnd(-40, 40)}); }
+    g.fillStyle = '#0d1226'; g.fillRect(0, 0, 420, 260);
+    stars.forEach(s => { s[1] = (s[1] + s[2]*30*dt) % 260; g.fillStyle = 'rgba(255,255,255,.7)'; g.fillRect(s[0], s[1], s[2], s[2]); });
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    for(let i=tg.length-1;i>=0;i--){ const t = tg[i]; t.life -= dt; t.x = clamp(t.x + t.vx*dt, 20, 400); if(t.life <= 0){ tg.splice(i, 1); continue; }
+      g.font = `${Math.round(t.r*2*Math.min(1, t.life*2))}px sans-serif`; g.fillText('👾', t.x, t.y); }
+    fx = fx.filter(f => (f.a -= dt*2.5) > 0); fx.forEach(f => { g.globalAlpha = f.a; g.font = '34px sans-serif'; g.fillText('💥', f.x, f.y); g.globalAlpha = 1; });
+    MG.raf = requestAnimationFrame(frame); };
+  $('#mgS').textContent = '💥 0마리';
+  const finish = () => { if(MG.done) return; mgStop(); result(pl, `🎮 게임 끝! ${score}마리 물리침`, `${score >= 25 ? '🏆 프로게이머 실력!' : score >= 15 ? '👍 잘했어요!' : '🙂 다음엔 더 잘할 거예요'} ${funReward(pl, 'aim', Math.min(12, 3 + Math.floor(score/3)))}`); };
+  mgTimer(20000, null, finish); MG.raf = requestAnimationFrame(frame);
+}
+// ---------- 🎤 코인 노래방: 리듬 게임 ----------
+function runKaraoke(pl){
+  const song = pick([
+    {t:'🎵 목욕탕 블루스', lanes:[0,1,2,1,0,1,2,3,2,1,0,2,1,3,2,0,1,2,3,3,2,1,0,0]},
+    {t:'🎵 행복 동네 트로트', lanes:[0,0,2,2,3,3,2,1,1,0,0,1,2,3,2,1,0,2,3,1,0,1,2,0]},
+    {t:'🎵 한강 별빛 발라드', lanes:[2,1,0,1,2,2,2,1,1,1,2,3,3,2,1,0,1,2,2,2,1,1,2,1]}
+  ]);
+  const FREQ = [523, 659, 784, 1047], KEYS = {KeyD:0, KeyF:1, KeyJ:2, KeyK:3, Digit1:0, Digit2:1, Digit3:2, Digit4:3}, COL = ['#ff8fb1','#ffd34d','#6fe08a','#56c8ff'];
+  const GAP = .5, START = 1.6, FALL = 1.5, notes = song.lanes.map((l, i) => ({l, t:START + i*GAP, hit:0}));
+  showModal(`<h2>🎤 코인 노래방 — ${song.t}</h2><p>노트가 줄에 닿을 때 <b>D F J K</b> 키 (또는 해당 줄을 터치)!</p>${mgBar()}
+    <canvas id="mgCv" width="360" height="300" style="width:100%;max-width:420px;display:block;margin:0 auto;border-radius:12px;border:3px solid #24323a;background:#1b1036;touch-action:none"></canvas>`, [['그만하기', () => finish()]]);
+  const cv = $('#mgCv'), g = cv.getContext('2d'), HY = 255, LW = 90; let t0 = performance.now(), sum = 0, combo = 0, msg = '', msgA = 0, flash = [0,0,0,0];
+  const press = l => { if(MG.done) return; flash[l] = 1; const t = (performance.now() - t0)/1000;
+    let best = null, bd = .32; notes.forEach(n => { if(!n.hit && n.l === l && Math.abs(n.t - t) < bd){ bd = Math.abs(n.t - t); best = n; } });
+    if(best){ best.hit = bd < .12 ? 2 : 1; sum += best.hit === 2 ? 100 : 60; combo++; msg = best.hit === 2 ? '퍼펙트! ✨' : '좋아요!'; msgA = 1; beep(FREQ[l], .18, 'triangle', .05); }
+    else { combo = 0; msg = '삐끗 😅'; msgA = .8; beep(180, .06, 'sawtooth', .02); }
+    $('#mgS').textContent = `🎶 콤보 ${combo}`; };
+  MG.keys = e => { if(e.code in KEYS){ e.preventDefault(); e.stopPropagation(); if(!e.repeat) press(KEYS[e.code]); } };
+  window.addEventListener('keydown', MG.keys, true);
+  cv.addEventListener('pointerdown', e => { const r = cv.getBoundingClientRect(); press(clamp(Math.floor((e.clientX - r.left)/r.width*4), 0, 3)); });
+  const END = START + song.lanes.length*GAP + 1;
+  const frame = now => { if(MG.done) return; const t = (now - t0)/1000;
+    g.fillStyle = '#1b1036'; g.fillRect(0, 0, 360, 300);
+    for(let l=0;l<4;l++){ g.fillStyle = l%2 ? 'rgba(255,255,255,.04)' : 'rgba(255,255,255,.08)'; g.fillRect(l*LW, 0, LW, 300); if(flash[l] > 0){ g.fillStyle = `rgba(255,255,255,${flash[l]*.25})`; g.fillRect(l*LW, 0, LW, 300); flash[l] -= .08; } }
+    g.fillStyle = '#ffffff'; g.fillRect(0, HY - 2, 360, 4);
+    g.font = '18px Jua, sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,.6)'; ['D','F','J','K'].forEach((k, l) => g.fillText(k, l*LW + LW/2, 285));
+    notes.forEach(n => { if(n.hit) return; const y = HY - (n.t - t)/FALL*HY; if(y < -20 || y > 320) return; if(y > HY + 40){ n.hit = -1; combo = 0; return; }
+      g.fillStyle = COL[n.l]; g.beginPath(); g.arc(n.l*LW + LW/2, y, 17, 0, Math.PI*2); g.fill(); g.fillStyle = '#fff'; g.font = '16px sans-serif'; g.fillText('♪', n.l*LW + LW/2, y + 6); });
+    if(msgA > 0){ g.globalAlpha = msgA; g.fillStyle = '#ffe48a'; g.font = '30px Jua, sans-serif'; g.fillText(msg, 180, 120); g.globalAlpha = 1; msgA -= .02; }
+    if(t > END) return finish();
+    MG.raf = requestAnimationFrame(frame); };
+  $('#mgS').textContent = '🎶 콤보 0';
+  const finish = () => { if(MG.done) return; mgStop(); const sc = Math.round(sum / (notes.length*100) * 100);
+    [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, .2, 'triangle', .04), i*120));
+    result(pl, `🎤 노래방 점수: ${sc}점!`, `${sc >= 90 ? '🏆 가수 데뷔해도 되겠어요!' : sc >= 70 ? '👏 박수 짝짝짝!' : sc >= 40 ? '🙂 흥은 최고!' : '😅 다음 곡은 더 잘할 거예요'} ${funReward(pl, 'sing', Math.min(14, 2 + Math.round(sc/9)))}`); };
+  MG.done = false; MG.raf = requestAnimationFrame(frame);
+  const el = $('#mgT'); if(el) el.textContent = song.t;
+}
+// ---------- 📝 학원: 수학 퀴즈 ----------
+function runQuiz(pl){
+  let score = 0, ans = 0;
+  showModal(`<h2>📝 수학 학원 — 스피드 퀴즈</h2><p>정답을 빨리 골라요! 틀리면 1초 감점 (20초)</p>${mgBar()}
+    <div id="mgQ" style="font-family:Jua;font-size:44px;text-align:center"></div><div id="mgBtns" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px"></div>`, [['그만하기', () => finish()]]);
+  const next = () => { const op = pick(['+','-','×']), a = Math.floor(rnd(2, op === '×' ? 10 : 50)), b = Math.floor(rnd(2, op === '×' ? 10 : 30));
+    ans = op === '+' ? a + b : op === '-' ? a - b : a*b; $('#mgQ').textContent = `${a} ${op} ${b} = ?`;
+    const opts = new Set([ans]); while(opts.size < 4) opts.add(ans + Math.floor(rnd(-9, 10)) || ans + 11);
+    const bx = $('#mgBtns'); bx.innerHTML = ''; shuf([...opts]).forEach(v => { const b = document.createElement('button'); b.className = 'btn big'; b.style.fontSize = '24px'; b.textContent = v;
+      b.onclick = () => { if(MG.done) return; if(v === ans){ score++; beep(700 + score*20, .06, 'square', .03); } else { MG.pen += 1000; beep(150, .15, 'sawtooth', .04); } $('#mgS').textContent = `✅ ${score}문제`; next(); }; bx.appendChild(b); }); };
+  next(); $('#mgS').textContent = '✅ 0문제';
+  const finish = () => { if(MG.done) return; mgStop(); result(pl, `📝 퀴즈 끝! ${score}문제 정답`, `${score >= 12 ? '🏆 수학 천재!' : score >= 6 ? '👍 똑똑해요!' : '🙂 복습하면 더 잘할 거예요'} ${funReward(pl, 'quiz', Math.min(12, 2 + score))}`); };
+  mgTimer(20000, null, finish);
+}
+// ---------- 🍽️ 음식 메뉴 ----------
+function openMenu(pl){
+  const menu = MENUS[pl.name] || [];
+  const btns = menu.map(([ico, name, cost, fresh]) => [`${ico} ${name} · ${won(cost)}원`, () => {
+    if(!payCost(cost)) return;
+    let eff; if(S.role === 'customer'){ gainFresh(fresh); updateHUD(); eff = `😊 개운함 +${fresh}`; } else eff = '💪 힘이 나요!';
+    S.buff.snack = true; renderBuffs();
+    result(pl, `${ico} 냠냠! ${name}`, `${pick(['정말 맛있어요!', '이 집 맛집이네요 👍', '배가 든든해요~'])} ${eff} · 🍢 오늘 걷는 속도 +15%`);
+  }]);
+  btns.push(['↩️ 뒤로', () => openPlace(pl)]);
+  showModal(`<h2>${pl.cfg.icon} ${pl.name} 메뉴판</h2><p>뭘 먹을까요? <small>(가진 돈 ${won(S[wKey()])}원)</small></p>`, btns);
+}
+// ---------- 💇 미용실 ----------
+const HAIR_STYLES = [['short','짧은 머리'],['long','긴 머리'],['bob','단발'],['bun','똥머리'],['curly','뽀글 파마'],['mohawk','모히칸'],['pigtails','양갈래'],['bald','삭발']];
+const HAIR_COLORS = [['#2a2a2a','검정'],['#6b4226','갈색'],['#e8c15a','금발'],['#d9483b','빨강'],['#3d7cc9','파랑'],['#ff8fb1','분홍'],['#c8ccd2','은발'],['#4fae5c','초록']];
+function openSalon(pl){
+  const cur = S.hair || {style:'short', color:'#2a2a2a'}, sel = {...cur};
+  const draw = () => {
+    showModal(`<h2>💇 미용실</h2><p>원하는 머리 모양과 색을 골라요. 미용사: "예쁘게 해 드릴게요~ ✂️"</p>
+      <p style="font-family:Jua;margin:8px 0 4px">스타일</p><div id="hsS" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      <p style="font-family:Jua;margin:10px 0 4px">색깔</p><div id="hsC" style="display:flex;flex-wrap:wrap;gap:6px"></div>`,
+      [[`✂️ 이렇게 해 주세요 · 10,000원`, () => { if(!payCost(10000)) return; setPlayerHair(sel.style, sel.color); [700, 900, 1100].forEach((f, i) => setTimeout(() => beep(f, .08, 'square', .03), i*90));
+        result(pl, '💇 새 머리 완성!', `${HAIR_STYLES.find(h => h[0] === sel.style)[1]} · ${HAIR_COLORS.find(h => h[0] === sel.color)[1]} — 완전 잘 어울려요! ${funReward(pl, 'hair', 8)}`); }, 'primary'],
+       ['↩️ 뒤로', () => openPlace(pl)]]);
+    HAIR_STYLES.forEach(([id, n]) => { const b = document.createElement('button'); b.className = 'btn'; b.textContent = n; if(sel.style === id) b.style.background = '#ffe48a'; b.onclick = () => { sel.style = id; draw(); }; $('#hsS').appendChild(b); });
+    HAIR_COLORS.forEach(([c, n]) => { const b = document.createElement('button'); b.className = 'btn'; b.innerHTML = `<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${c};border:2px solid #24323a;vertical-align:-2px"></span> ${n}`; if(sel.color === c) b.style.background = '#ffe48a'; b.onclick = () => { sel.color = c; draw(); }; $('#hsC').appendChild(b); });
+  };
+  draw();
+}
+function setPlayerHair(style, color){
+  const head = PLAYER.p.head;
+  if(!PLAYER.hair0) PLAYER.hair0 = head.children.filter(o => o.material === M('#2a2a2a'));
+  PLAYER.hair0.forEach(o => o.visible = false);
+  if(PLAYER.hairG) head.remove(PLAYER.hairG);
+  const g = new THREE.Group(); head.add(g); PLAYER.hairG = g;
+  const m = new THREE.MeshLambertMaterial({color, side:THREE.DoubleSide});
+  const cap = (r=.275) => { const c = mesh(new THREE.SphereGeometry(r, 18, 10, 0, Math.PI*2, 0, Math.PI/2), m, 0, .02, -.02, g, false); c.rotation.x = -.35; return c; };
+  if(style === 'short') cap();
+  if(style === 'long'){ cap(); box(.46, .42, .12, m, 0, -.12, -.18, g); }
+  if(style === 'bob'){ cap(.29); const b = mesh(new THREE.CylinderGeometry(.29, .31, .24, 18, 1, true, Math.PI*.35, Math.PI*1.3), m, 0, -.06, -.03, g, false); b.rotation.y = Math.PI; }
+  if(style === 'bun'){ cap(); sph(.11, m, 0, .24, -.14, g, 12); }
+  if(style === 'curly'){ cap(.27); for(let i=0;i<16;i++){ const a = i/16*Math.PI*2, y = rnd(.0, .2); sph(.075, m, Math.cos(a)*.24, y + .02, Math.sin(a)*.24 - .03, g, 8); } for(let i=0;i<5;i++) sph(.08, m, rnd(-.12, .12), .24, rnd(-.15, .05), g, 8); }
+  if(style === 'mohawk'){ for(let i=0;i<6;i++){ const a = -.9 + i*.38; const s = box(.07, .17, .09, m, 0, .03 + .27*Math.cos(a), -.03 - .27*Math.sin(a), g); s.rotation.x = -a; } }
+  if(style === 'pigtails'){ cap(); [-1, 1].forEach(s => { sph(.1, m, s*.27, -.02, -.1, g, 10); const t = mesh(new THREE.ConeGeometry(.07, .26, 8), m, s*.3, -.18, -.12, g, false); t.rotation.x = Math.PI; }); }
+  if(style === 'bald'){ const sh = sph(.04, M('#ffffff'), .06, .22, .12, g, 6); sh.material = new THREE.MeshBasicMaterial({color:'#fff8ee', transparent:true, opacity:.6}); }
+  S.hair = {style, color};
+}
+// ---------- 👓 안경점 ----------
+function openGlasses(pl){
+  const opts = [['round', '👓 동그란 안경', 8000], ['sun', '🕶️ 멋쟁이 선글라스', 12000], ['none', '🙂 안경 벗기', 0]];
+  const btns = opts.map(([id, n, cost]) => [`${n}${cost ? ' · ' + won(cost) + '원' : ''}`, () => { if(!payCost(cost)) return; setPlayerGlasses(id); result(pl, id === 'none' ? '🙂 안경을 벗었어요' : `${n} 착용!`, id === 'none' ? '맨얼굴도 멋져요.' : '세상이 또렷하게 보여요! ' + funReward(pl, 'glasses', 5)); }]);
+  btns.push(['↩️ 뒤로', () => openPlace(pl)]);
+  showModal(`<h2>👓 안경점</h2><p>어떤 안경을 써 볼까요?</p>`, btns);
+}
+function setPlayerGlasses(id){
+  const head = PLAYER.p.head; if(PLAYER.glassG) head.remove(PLAYER.glassG);
+  PLAYER.glassG = null; if(id === 'none') return;
+  const g = new THREE.Group(); head.add(g); PLAYER.glassG = g;
+  if(id === 'round'){ [-1, 1].forEach(s => { const r = new THREE.Mesh(new THREE.TorusGeometry(.065, .014, 6, 16), M('#3a2a20')); r.position.set(s*.09, .03, .258); g.add(r); }); box(.06, .014, .014, M('#3a2a20'), 0, .04, .26, g); }
+  else { box(.42, .09, .035, M('#111111'), 0, .035, .258, g); box(.44, .02, .03, M('#d4af37'), 0, .085, .258, g); }
 }
 /* ======================= 행복모터스 (자동차 매장 + 고급 자동차 모델) ======================= */
 // 가상 브랜드 '행복모터스'. 차 앞쪽 = 로컬 +x (내 차와 같은 방향). 매장은 연장된 길 x 62.5~82.5 에 있어요.
@@ -1339,15 +1608,16 @@ function interactMain(){
   if(modalOpen()) return;
   if(DRIVE.active) return exitCar();
   if(PLAYER.using) return;
-  if(PLAYER.inStore){ if(nearStoreDoorIn()) return exitStore(); if(nearCounter()) return payBasket(); const sh = nearShelf(); if(sh >= 0) return addToBasket(sh); return; }
+  if(PLAYER.inStore){ if(nearStoreDoorIn()) return exitStore(); if(nearCounter()) return S.basket.length ? payBasket() : openPlace(storePlace()); const sh = nearShelf(); if(sh >= 0) return addToBasket(sh); return; }
   const sd = shopDoorNear(); if(sd) return enterStore(sd);
-  if(PLAYER.inPrem){ if(nearPremDoorIn()) return exitPrem(); if(nearPremBed()) return S.premium ? sleep() : toast('구매해야 여기서 잘 수 있어요'); if(nearJacuzzi()) return soakJacuzzi(); return; }
+  if(PLAYER.inPrem){ if(nearPremDoorIn()) return exitPrem(); if(nearPremBed()) return S.premium ? sleep() : toast('구매해야 여기서 잘 수 있어요'); if(nearJacuzzi()) return soakJacuzzi(); const pp = nearPlace(); if(pp) return openPlace(pp); return; }
   if(nearPremDoorOut()) return premDoor();
   if(nearBed()) return sleep();
   if(nearHomeDoor()) return exitHome();
   if(nearAptDoor()) return enterHome();
-  if(PLAYER.inHome) return;
+  if(PLAYER.inHome){ const hp = nearPlace(); if(hp) return openPlace(hp); return; }
   const sc = nearShowCar(); if(sc) return showCarModal(sc);
+  const pl = nearPlace(); if(pl) return openPlace(pl);
   if(nearCar()) return enterCar();
   const {cust, fac} = nearestTargets();
   if(S.role==='customer'){ if(fac==='milk') return buyMilkMe(); if(fac && FAC[fac]) return useFacility(fac); return; }
@@ -1387,7 +1657,7 @@ function updatePlayer(dt){
     const sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
     const dx = ix*cy + iz*sy, dz = -ix*sy + iz*cy;
     const run = k.ShiftLeft || k.ShiftRight || Math.hypot(P.joy.x, P.joy.y) > .92;
-    const sp = (run ? 8.5 : 5.2) * dt * (S.role==='customer' && S.buff.slipper ? 1.2 : 1);
+    const sp = (run ? 8.5 : 5.2) * dt * (S.role==='customer' && S.buff.slipper ? 1.2 : 1) * (S.buff.snack ? 1.15 : 1);
     P.x += dx*sp; P.z += dz*sp; collide(P, .32, null, P.inHome ? 'home' : P.inStore ? 'store' : P.inPrem ? 'prem' : null);
     let diff = Math.atan2(dx, dz) - P.ry; diff = Math.atan2(Math.sin(diff), Math.cos(diff));
     P.ry += diff * Math.min(1, dt*14);
@@ -1401,17 +1671,18 @@ function updatePlayer(dt){
   const sh = nearShelf();
   if(PLAYER.inStore){
     if(nearStoreDoorIn()) h = '<b>E</b> 밖으로 나가기 🚪';
-    else if(nearCounter()) h = `<b>E</b> 계산하기 🧾 (${S.basket.length}개)`;
+    else if(nearCounter()) h = S.basket.length ? `<b>E</b> 계산하기 🧾 (${S.basket.length}개)` : '<b>E</b> 💼 알바하기 (장바구니가 비었을 때)';
     else if(sh >= 0){ const it = storeItems()[sh]; h = (it.once && S.buff[it.id]) ? `${it.ico} ${it.name} ✅ 오늘 구매 완료` : `<b>E</b> ${it.ico} ${it.name} 담기 · ${won(it.cost)}원${it.desc ? ` <small>(${it.desc})</small>` : ''}`; }
   }
   else if(shopDoorNear()) h = '<b>E</b> ' + ({conv:'편의점 들어가기 🏪', daiso:'천원샵 들어가기 🛍️', pet:'펫샵 들어가기 🐾'})[shopDoorNear()];
-  else if(PLAYER.inPrem){ h = nearPremDoorIn() ? '<b>E</b> 밖으로 나가기 🚪' : nearPremBed() ? (S.phase==='night' ? '<b>E</b> 킹 침대에서 자기 💤✨' : '킹 침대 (밤에 잘 수 있어요)') : nearJacuzzi() ? (S.jacuzziDay === S.day ? '자쿠지 (오늘은 이미 즐겼어요)' : '<b>E</b> 자쿠지 즐기기 🛁') : ''; }
+  else if(PLAYER.inPrem){ h = nearPremDoorIn() ? '<b>E</b> 밖으로 나가기 🚪' : nearPremBed() ? (S.phase==='night' ? '<b>E</b> 킹 침대에서 자기 💤✨' : '킹 침대 (밤에 잘 수 있어요)') : nearJacuzzi() ? (S.jacuzziDay === S.day ? '자쿠지 (오늘은 이미 즐겼어요)' : '<b>E</b> 자쿠지 즐기기 🛁') : nearPlace() ? '<b>E</b> 🎮 대형 TV 게임 · 💼 일하기' : ''; }
   else if(nearPremDoorOut()) h = S.premium ? '<b>E</b> 내 펜트하우스 들어가기 🏙️' : `<b>E</b> 프리미엄 타워 (${won(premPrice())}원)`;
   else if(nearBed()) h = S.phase==='night' ? '<b>E</b> 잠자기 💤' : '침대 (밤에 잘 수 있어요)';
   else if(nearHomeDoor()) h = '<b>E</b> 밖으로 나가기 🚪';
   else if(nearAptDoor()) h = '<b>E</b> 우리 집 들어가기 🏠';
-  else if(PLAYER.inHome) h = '';
+  else if(PLAYER.inHome) h = nearPlace() ? '<b>E</b> 📺 TV 보기 · 💼 재택 부업' : '';
   else if(nearShowCar()){ const sc = nearShowCar(), cm = CAR_MODELS[sc.id]; h = `<b>E</b> ${cm.icon} ${cm.name} 살펴보기 · ${won(carPrice(sc.id))}원${S.myCar===sc.id ? ' (내 차)' : ''}`; }
+  else if(nearPlace()){ const pp = nearPlace(); h = `<b>E</b> ${pp.cfg.icon} ${pp.name} · 💼 알바·활동`; }
   else if(nearCar()) h = '<b>E</b> 내 차 타기 🚗';
   else if(S.role==='customer'){ if(fac==='milk') h = '<b>E</b> 바나나우유 사 먹기 · 2,500원'; else if(fac && FAC[fac]) h = `<b>E</b> ${FAC[fac].icon} ${FAC[fac].name} 이용하기 · ${won(FAC[fac].pay)}원`; }
   else if(cust && cust.yelling) h = `<b>E</b> ${cust.name} 진정시키기 💢`;

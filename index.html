@@ -754,22 +754,299 @@ function buildRoadExt(){
   let k = 0;
   [[47, 116], [-116, -45]].forEach(([x0, x1]) => {
     for(let x = x0 + 3.2; x < x1 - 3; x += 7.2){
+      if(x > 60 && x < 85) continue; // 행복모터스 매장 자리
       const [name, bg, fg] = shops[k++ % shops.length], h = rnd(4, 9), d = rnd(4.6, 5.6), z = 6.6 - d/2;
       building(x, z, 6.2, d, h, pick(bases), {sign:name, signBg:bg, signFg:fg, awning: Math.random()<.6 ? bg : null, rows: Math.max(2, Math.round(h/1.8))});
       // 세로 간판 (밤에 빛남)
       if(h > 5.5 && Math.random() < .7){
         const vs = mesh(new THREE.PlaneGeometry(.7, 2.6), new THREE.MeshLambertMaterial({map:textTex(name.replace(/\s/g,'').slice(0,4).split(''),{w:96,h:360,bg,fg,border:fg,font:58}), emissive:'#ffffff', emissiveIntensity:.12}), x+2.6, h-1.9, z+d/2+.45, scene, false);
-        W.nightGlow.push(vs.material); box(.06,.06,.45,M('#5b6670'),x+2.6,h-.7,z+d/2+.22);
+        (W.nightGlow = W.nightGlow || []).push(vs.material); box(.06,.06,.45,M('#5b6670'),x+2.6,h-.7,z+d/2+.22);
       }
       OBST.push([x-3.2, z-d/2-.1, x+3.2, z+d/2+.1]);
     }
   });
+  buildDealer();
   // 도로 끝 표지판
   [[-112, '← 시내 방향'], [112, '외곽 방향 →']].forEach(([x, t]) => {
     sbox(.15, 3.4, .15, '#8a939b', x, 1.7, 9.7);
     plane(2.6, .8, new THREE.MeshLambertMaterial({map:textTex(t,{w:384,h:120,bg:'#1f5fae',fg:'#ffffff',border:'#ffffff',font:50})}), x, 3.1, 9.8);
     OBST.push([x-.2, 9.55, x+.2, 9.85]);
   });
+}
+/* ======================= 행복모터스 (자동차 매장 + 고급 자동차 모델) ======================= */
+// 가상 브랜드 '행복모터스'. 차 앞쪽 = 로컬 +x (내 차와 같은 방향). 매장은 연장된 길 x 62.5~82.5 에 있어요.
+const CAR_MODELS = {
+  nuri:   {name:'누리', kind:'중형 세단', icon:'🚘', price:400000, vmax:16, acc:1.0,
+           colors:['#eef0f2','#1f2a36','#8a1f2b'], colorN:['펄 화이트','미드나잇 블랙','와인 레드'],
+           L:3.0, W:1.32, belt:.74, roof:1.1, nose:.58, deck:.78, tail:.64, aB:.55, aT:-.08, cT:-.72, cB:-1.12, wb:[-.98,.98], lights:'twin', rim:'#c9ced3'},
+  hanbit: {name:'한빛', kind:'대형 SUV', icon:'🚙', price:700000, vmax:15, acc:.9,
+           colors:['#2b3a4a','#f2f2ee','#5b6b5a'], colorN:['딥 네이비','스노우 화이트','포레스트 그린'],
+           L:3.2, W:1.42, belt:.9, roof:1.44, nose:.8, deck:.94, tail:.88, aB:.72, aT:.3, cT:-1.36, cB:-1.48, wb:[-1.02,1.05], lights:'bar', rim:'#8a9096', rails:true},
+  byeol:  {name:'별빛 EV', kind:'전기 크로스오버', icon:'⚡', price:900000, vmax:17, acc:1.4,
+           colors:['#c9d6d9','#f2c94c','#3a4a5a'], colorN:['문라이트 실버','선샤인 옐로','스톰 그레이'],
+           L:3.0, W:1.38, belt:.82, roof:1.24, nose:.66, deck:.86, tail:.8, aB:.62, aT:.06, cT:-1.0, cB:-1.4, wb:[-1.0,1.0], lights:'bar', rim:'#e9ecef', ev:true},
+  beon:   {name:'번개 GT', kind:'스포츠 쿠페', icon:'🏎️', price:1200000, vmax:21, acc:1.6,
+           colors:['#d9342b','#1d5fd1','#f4f4f4'], colorN:['레이싱 레드','일렉트릭 블루','화이트'],
+           L:3.1, W:1.4, belt:.62, roof:.95, nose:.46, deck:.66, tail:.6, aB:.36, aT:-.26, cT:-.92, cB:-1.4, wb:[-1.0,1.0], lights:'twin', rim:'#2a2e33', spoiler:true}
+};
+const CAR_GLASS = new THREE.MeshPhongMaterial({color:'#1b2430', shininess:120, specular:'#9fb6c8'});
+const CAR_DARK = new THREE.MeshLambertMaterial({color:'#17191c'});
+const CAR_HEAD = new THREE.MeshLambertMaterial({color:'#f4f8ff', emissive:'#eaf4ff', emissiveIntensity:.5});
+const CAR_TAIL = new THREE.MeshLambertMaterial({color:'#d4202a', emissive:'#ff2a2a', emissiveIntensity:.5});
+function carExtrude(shape, depth, mat, parent, bevel=true){
+  const geo = new THREE.ExtrudeGeometry(shape, {depth, bevelEnabled:bevel, bevelThickness:bevel ? .05 : 0, bevelSize:bevel ? .04 : 0, bevelSegments:3, curveSegments:12});
+  geo.translate(0, 0, -depth/2);
+  const m = new THREE.Mesh(geo, mat); m.castShadow = m.receiveShadow = true; parent.add(m); return m;
+}
+function carBodyShape(m){
+  const h = m.L/2, y0 = .3, R = .37, s = new THREE.Shape();
+  s.moveTo(-h, y0+.1);
+  s.lineTo(-h+.12, y0);
+  s.lineTo(m.wb[0]-R, y0); s.absarc(m.wb[0], .3, R, Math.PI, 0, true);
+  s.lineTo(m.wb[1]-R, y0); s.absarc(m.wb[1], .3, R, Math.PI, 0, true);
+  s.lineTo(h-.14, y0);
+  s.lineTo(h, y0+.14);
+  s.lineTo(h+.02, m.nose);
+  s.quadraticCurveTo(h, m.nose+.12, h-.35, m.belt-.02);
+  s.lineTo(m.aB, m.belt);
+  s.lineTo(m.cB, m.belt+.02);
+  s.lineTo(-h+.2, m.deck);
+  s.quadraticCurveTo(-h+.02, m.deck, -h, m.tail);
+  s.lineTo(-h, y0+.1);
+  return s;
+}
+function carGlassShape(m){
+  const s = new THREE.Shape(), mid = (m.aT + m.cT)/2;
+  s.moveTo(m.aB, m.belt-.01);
+  s.lineTo(m.aT, m.roof);
+  s.quadraticCurveTo(mid, m.roof+.05, m.cT, m.roof-.01);
+  s.lineTo(m.cB, m.belt+.01);
+  s.lineTo(m.aB, m.belt-.01);
+  return s;
+}
+function carRoofShape(m){
+  const s = new THREE.Shape(), mid = (m.aT + m.cT)/2;
+  s.moveTo(m.aT+.03, m.roof-.03);
+  s.quadraticCurveTo(mid, m.roof+.02, m.cT-.02, m.roof-.04);
+  s.lineTo(m.cT-.05, m.roof+.005);
+  s.quadraticCurveTo(mid, m.roof+.085, m.aT+.07, m.roof+.015);
+  s.lineTo(m.aT+.03, m.roof-.03);
+  return s;
+}
+function carWheel(parent, x, z, rimC){
+  const w = group(x, .3, z, parent), out = Math.sign(z);
+  const t = mesh(new THREE.CylinderGeometry(.3, .3, .22, 22), M('#1c1c1e'), 0,0,0, w); t.rotation.x = Math.PI/2;
+  const rim = mesh(new THREE.CylinderGeometry(.205, .205, .225, 18), CAR_DARK, 0,0,0, w); rim.rotation.x = Math.PI/2;
+  const lip = mesh(new THREE.TorusGeometry(.2, .018, 6, 22), M(rimC), 0, 0, out*.113, w);
+  for(let i=0;i<5;i++){ const sp = box(.38, .05, .02, M(rimC), 0, 0, out*.115, w); sp.rotation.z = i*Math.PI/5; }
+  const cap = mesh(new THREE.CylinderGeometry(.05, .05, .03, 12), M('#d0d4d8'), 0, 0, out*.122, w); cap.rotation.x = Math.PI/2;
+  const disc = mesh(new THREE.CylinderGeometry(.13, .13, .02, 14), M('#7d858c'), 0, 0, out*.06, w); disc.rotation.x = Math.PI/2; // 브레이크 디스크
+  return w;
+}
+function plateTex(){ return textTex('12가 3456', {w:256, h:72, bg:'#f8f8f8', fg:'#1d1d1d', border:'#1d1d1d', font:42}); }
+let PLATE_TEX = null;
+function makeModelCar(id, color, parent=scene){
+  const m = CAR_MODELS[id], g = group(0, 0, 0, parent), h = m.L/2, W = m.W;
+  const paint = new THREE.MeshPhongMaterial({color, shininess:90, specular:'#5a5a5a'});
+  carExtrude(carBodyShape(m), W - .1, paint, g);
+  carExtrude(carGlassShape(m), W*.84, CAR_GLASS, g, false);
+  carExtrude(carRoofShape(m), W*.88, m.ev ? CAR_GLASS : paint, g, false);
+  // 기둥(B필러), 바퀴집, 하부
+  box(.07, m.roof - m.belt - .02, W*.845, CAR_DARK, m.aT + (m.cT - m.aT)*.45, (m.belt + m.roof)/2, 0, g);
+  m.wb.forEach(wx => box(.74, .36, W - .5, CAR_DARK, wx, .47, 0, g));
+  box(m.L - .5, .14, W - .3, CAR_DARK, 0, .22, 0, g);
+  // 바퀴 4개
+  const wheels = [];
+  m.wb.forEach(wx => [-1, 1].forEach(s => wheels.push(carWheel(g, wx, s*(W/2 - .13), m.rim))));
+  // 앞: 헤드램프·그릴·범퍼
+  if(m.lights === 'bar'){
+    box(.05, .045, W - .22, CAR_HEAD, h + .06, m.nose - .03, 0, g);
+    [-1, 1].forEach(s => box(.05, .12, .1, CAR_HEAD, h + .055, m.nose - .1, s*(W/2 - .16), g));
+  } else {
+    [-1, 1].forEach(s => { const l = box(.06, .07, .34, CAR_HEAD, h + .045, m.nose - .05, s*(W/2 - .26), g); l.rotation.x = s*.12; });
+  }
+  if(!m.ev){
+    box(.04, .15, W*.5, CAR_DARK, h + .06, .53, 0, g);
+    for(let i=0;i<3;i++) box(.045, .012, W*.48, M('#b9bfc5'), h + .07, .48 + i*.05, 0, g);
+  } else {
+    box(.04, .05, W*.62, CAR_DARK, h + .06, .4, 0, g);
+    for(let i=0;i<6;i++) box(.05, .03, .03, CAR_HEAD, h + .07, .55, -.3 + i*.12, g); // 픽셀 라이트 느낌의 작은 점
+  }
+  box(.06, .07, W - .16, CAR_DARK, h + .03, .35, 0, g);
+  const emb = mesh(new THREE.CylinderGeometry(.055, .055, .02, 16), M('#dfe3e7'), h + .08, m.ev ? .62 : .53, 0, g); emb.rotation.z = Math.PI/2;
+  // 뒤: 일자형 테일램프·범퍼
+  box(.05, .05, W - .2, CAR_TAIL, -h - .05, m.tail - .05, 0, g);
+  box(.06, .07, W - .16, CAR_DARK, -h - .03, .36, 0, g);
+  // 번호판
+  PLATE_TEX = PLATE_TEX || plateTex();
+  const pm = new THREE.MeshLambertMaterial({map:PLATE_TEX});
+  const pf = mesh(new THREE.PlaneGeometry(.44, .12), pm, h + .1, .4, 0, g, false); pf.rotation.y = Math.PI/2;
+  const pr = mesh(new THREE.PlaneGeometry(.44, .12), pm, -h - .07, .5, 0, g, false); pr.rotation.y = -Math.PI/2;
+  // 사이드미러·손잡이
+  [-1, 1].forEach(s => {
+    box(.04, .08, .12, paint, m.aB - .06, m.belt + .07, s*(W/2 + .02), g);
+    box(.1, .07, .04, CAR_DARK, m.aB - .1, m.belt + .07, s*(W/2 + .05), g);
+    [m.aB - .45, m.aB - 1.0].forEach(x => { if(x > m.cB + .1) box(.1, .025, .02, M(m.ev ? '#2a2e33' : '#c8cdd2'), x, m.belt - .09, s*(W/2 - .01), g); });
+    box(m.L*.5, .05, .02, CAR_DARK, (m.wb[0] + m.wb[1])/2, .33, s*(W/2 - .04), g); // 사이드 스커트
+  });
+  if(m.rails) [-1, 1].forEach(s => box((m.aT - m.cT)*.85, .05, .05, M('#2a2e33'), (m.aT + m.cT)/2, m.roof + .08, s*W*.36, g));
+  if(m.spoiler){
+    box(.26, .03, W*.88, paint, -h + .12, m.deck + .14, 0, g);
+    [-1, 1].forEach(s => box(.04, .12, .04, CAR_DARK, -h + .14, m.deck + .07, s*W*.3, g));
+    [-1, 1].forEach(s => { const e = cyl(.05, .05, .1, M('#c8cdd2'), -h - .06, .32, s*.3, g, 10); e.rotation.z = Math.PI/2; }); // 머플러
+  }
+  if(m.ev){ box(.12, .1, .02, M('#2a2e33'), -h + .45, m.belt - .08, W/2 - .01, g); } // 충전구
+  g.userData = {paint, wheels, model:id};
+  return g;
+}
+
+// ---------- 매장 ----------
+const DEALER = {x0:62.5, x1:82.5, z0:-4, z1:6.4, H:5.2, cars:[], tables:[], flags:[]};
+function buildDealer(){
+  const D = DEALER, cx = (D.x0 + D.x1)/2, cz = (D.z0 + D.z1)/2, w = D.x1 - D.x0, d = D.z1 - D.z0, H = D.H;
+  const fl = plane(w, d, new THREE.MeshPhongMaterial({map:tileTex('#eef1f3','#d9dee2', w/2, d/2), shininess:60, specular:'#888888'}), cx, .02, cz);
+  fl.rotation.x = -Math.PI/2; fl.receiveShadow = true;
+  const frame = M('#2c3440'), navy = '#16324f';
+  // 뒷벽 + 대형 LED 화면
+  box(w, H, .3, M('#f4f6f8'), cx, H/2, D.z0 + .15);
+  const led = mesh(new THREE.PlaneGeometry(9, 2.8), new THREE.MeshBasicMaterial({map:canvasTex(900, 280, (g, W_, H_) => {
+    const gr = g.createLinearGradient(0, 0, W_, H_); gr.addColorStop(0, '#0f2742'); gr.addColorStop(1, '#1f5fae'); g.fillStyle = gr; g.fillRect(0, 0, W_, H_);
+    g.fillStyle = 'rgba(255,255,255,.08)'; for(let i=0;i<14;i++) g.fillRect(i*70, 0, 30, H_);
+    g.strokeStyle = '#ffffff'; g.lineWidth = 8; g.beginPath(); g.arc(150, 140, 80, 0, Math.PI*2); g.stroke();
+    g.fillStyle = '#ffffff'; g.font = FONT(110); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('✦', 150, 146);
+    g.font = FONT(96); g.textAlign = 'left'; g.fillText('행복모터스', 270, 110);
+    g.font = FONT(46); g.fillStyle = '#bfe3ff'; g.fillText('Drive Happy · 새로운 별빛 EV 출시', 274, 205);
+  })}), cx, 2.7, D.z0 + .31, scene, false);
+  // 기둥 + 유리벽
+  const glass = new THREE.MeshPhongMaterial({color:'#cfe9f5', transparent:true, opacity:.2, depthWrite:false, side:THREE.DoubleSide, shininess:100, specular:'#ffffff'});
+  for(let x = D.x0; x <= D.x1 + .01; x += 5) box(.22, H, .22, frame, x, H/2, D.z1);
+  [D.x0, D.x1].forEach(x => { box(.22, H, .22, frame, x, H/2, D.z0 + .2); box(.22, H, .22, frame, x, H/2, cz);
+    const gp = plane(d, H - .3, glass, x, (H - .3)/2 + .15, cz); gp.rotation.y = Math.PI/2; gp.renderOrder = 3; });
+  const DG = 1.6; // 자동문 반쪽 폭
+  [[D.x0, cx - DG], [cx + DG, D.x1]].forEach(([a, b]) => { const gp = plane(b - a, H - .3, glass, (a + b)/2, (H - .3)/2 + .15, D.z1); gp.renderOrder = 3; });
+  box(DG*2 + .2, .5, .3, frame, cx, 3.2, D.z1); // 문 위 상인방
+  const dglass = plane(DG*2, 3.0, new THREE.MeshPhongMaterial({color:'#bfe6ff', transparent:true, opacity:.1, depthWrite:false, side:THREE.DoubleSide}), cx, 1.5, D.z1 - .05); dglass.renderOrder = 3;
+  box(w, .16, .3, frame, cx, .08, D.z1); // 아래 틀
+  // 위 테두리 + 간판
+  box(w + .4, 1.0, .35, M(navy), cx, H + .4, D.z1);
+  [D.x0, D.x1].forEach(x => box(.35, 1.0, d, M(navy), x, H + .4, cz));
+  box(w + .4, 1.0, .35, M(navy), cx, H + .4, D.z0 + .15);
+  const sm = new THREE.MeshLambertMaterial({map:canvasTex(1024, 100, (g, W_, H_) => {
+    g.fillStyle = navy; g.fillRect(0, 0, W_, H_);
+    g.fillStyle = '#ffffff'; g.font = FONT(64); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('✦  행복모터스   HAENGBOK MOTORS', W_/2, H_/2 + 2);
+  }), emissive:'#ffffff', emissiveIntensity:.2});
+  (W.nightGlow = W.nightGlow || []).push(sm);
+  mesh(new THREE.PlaneGeometry(w - 1, .8), sm, cx, H + .4, D.z1 + .18, scene, false);
+  // 유리 지붕 + 지붕 보 + 천장 조명
+  const rg = plane(w, d, new THREE.MeshPhongMaterial({color:'#dff2fb', transparent:true, opacity:.1, depthWrite:false, side:THREE.DoubleSide}), cx, H + .85, cz); rg.rotation.x = -Math.PI/2; rg.renderOrder = 4;
+  const lm = glowMat('#ffffff', '#fff6dc');
+  for(let x = D.x0 + 2.5; x < D.x1; x += 5){
+    box(.14, .16, d, frame, x, H + .82, cz);
+    for(let z = D.z0 + 1.5; z < D.z1; z += 2.5){ const l = mesh(new THREE.CylinderGeometry(.22, .22, .05, 14), lm, x, H + .7, z, scene, false); }
+  }
+  const pl = new THREE.PointLight('#fff4dc', 0, 20); pl.position.set(cx, H - .5, cz); scene.add(pl); (W.lamps = W.lamps || []).push(pl);
+  // 유리창 이벤트 문구
+  const ev = mesh(new THREE.PlaneGeometry(4.2, .7), new THREE.MeshLambertMaterial({map:textTex('🎉 신차 출시 기념 시승 이벤트!', {w:640, h:100, bg:'#f2b632', fg:'#16324f', border:false, font:52}), transparent:true}), D.x0 + 3.1, 1.0, D.z1 + .03, scene, false);
+  // 회전 전시대 3개 + 창가 전시 1대
+  const showcase = [['nuri', 66.6, -.3, true], ['byeol', cx, -1.0, true], ['beon', 78.4, -.3, true], ['hanbit', 78.6, 4.0, false]];
+  showcase.forEach(([id, x, z, table]) => {
+    const t = group(x, 0, z);
+    if(table){
+      cyl(1.85, 1.95, .12, new THREE.MeshPhongMaterial({color:'#f6f8fa', shininess:100, specular:'#aaaaaa'}), 0, .06, 0, t, 32);
+      const ring = mesh(new THREE.TorusGeometry(1.9, .035, 6, 40), new THREE.MeshBasicMaterial({color:'#7fd3ff'}), 0, .1, 0, t, false); ring.rotation.x = Math.PI/2;
+      D.tables.push(t);
+    }
+    const car = makeModelCar(id, CAR_MODELS[id].colors[0], t); car.position.y = table ? .12 : 0; car.rotation.y = table ? .6 : Math.PI;
+    // 가격표
+    const tag = group(x + (table ? 1.9 : -2.0), 0, z + (table ? 1.6 : 0));
+    box(.05, 1.0, .05, M('#8a939b'), 0, .5, 0, tag);
+    const m = CAR_MODELS[id];
+    plane(1.1, .55, sMat(textTex([`${m.icon} ${m.name}`, m.kind], {w:256, h:128, bg:'#ffffff', fg:'#16324f', border:'#16324f', font:40})), 0, 1.15, .03, tag);
+    D.cars.push({id, x, z, car, ci:0});
+    OBST.push([x - 1.55, z - 1.55, x + 1.55, z + 1.55]);
+  });
+  // 상담 데스크 + 직원
+  const dk = group(66.4, 0, 4.0);
+  box(2.4, .78, .8, M('#ffffff'), 0, .39, 0, dk); box(2.5, .06, .9, M('#16324f'), 0, .81, 0, dk);
+  box(.5, .32, .04, new THREE.MeshLambertMaterial({color:'#7fd3ff', emissive:'#4ab8f0', emissiveIntensity:.5}), .5, 1.0, -.1, dk);
+  [-.6, .6].forEach(x => { cyl(.25, .25, .08, M('#16324f'), x, .5, .85, dk, 14); cyl(.04, .04, .5, M('#8a939b'), x, .25, .85, dk, 8); });
+  OBST.push([65.1, 3.5, 67.7, 4.5]);
+  const staff = makePerson({name:'영업사원', skin:'#f3cfaa', hair:'#2a2a2a', style:'short', towel:'#16324f', shirt:'#16324f', s:1.0});
+  staff.g.position.set(66.4, 0, 3.3); staff.pose = 'stand';
+  W.npcs.push({p:staff, type:'owner'});
+  // 대기 소파·화분·커피머신
+  box(2.2, .42, .8, M('#3a4a5a'), 64.6, .21, -3.2); box(2.2, .5, .2, M('#3a4a5a'), 64.6, .6, -3.55);
+  OBST.push([63.4, -3.7, 65.8, -2.75]);
+  [[63.2, 5.7], [81.8, 5.7], [81.8, -3.3]].forEach(([x, z]) => { cyl(.28, .22, .5, M('#e9ecef'), x, .25, z, scene, 12); sph(.45, M('#4e9a59'), x, .85, z, scene, 10); OBST.push([x - .3, z - .3, x + .3, z + .3]); });
+  box(.6, 1.2, .5, M('#2c3440'), 80.8, .6, -3.5); OBST.push([80.45, -3.8, 81.15, -3.2]);
+  // 벽 충돌
+  OBST.push([D.x0, D.z0 - .1, D.x1, D.z0 + .32], [D.x0 - .15, D.z0, D.x0 + .15, D.z1], [D.x1 - .15, D.z0, D.x1 + .15, D.z1],
+            [D.x0, D.z1 - .15, cx - DG, D.z1 + .15], [cx + DG, D.z1 - .15, D.x1, D.z1 + .15]);
+  CAR_BLOCK.push([D.x0 - .2, D.z0 - .2, D.x1 + .2, D.z1 + .2]);
+  // 인도 위 기둥 간판 (밤에 빛남)
+  const py = group(84.2, 0, 7.9);
+  box(1.1, 7.6, .45, M(navy), 0, 3.8, 0, py);
+  const pm = new THREE.MeshLambertMaterial({map:canvasTex(128, 760, (g, W_, H_) => {
+    g.fillStyle = navy; g.fillRect(0, 0, W_, H_);
+    g.strokeStyle = '#fff'; g.lineWidth = 6; g.beginPath(); g.arc(64, 70, 46, 0, Math.PI*2); g.stroke();
+    g.fillStyle = '#fff'; g.font = FONT(64); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('✦', 64, 74);
+    g.font = FONT(80); ['행','복','모','터','스'].forEach((c, i) => g.fillText(c, 64, 190 + i*110));
+  }), emissive:'#ffffff', emissiveIntensity:.2});
+  (W.nightGlow = W.nightGlow || []).push(pm);
+  mesh(new THREE.PlaneGeometry(1.0, 6.0), pm, 0, 4.4, .235, py, false);
+  OBST.push([83.6, 7.6, 84.8, 8.2]);
+  // 지붕 깃발
+  [D.x0 + 1.2, D.x1 - 1.2].forEach((x, i) => {
+    cyl(.04, .04, 2.2, M('#c8cdd2'), x, H + 2.0, D.z1, scene, 8);
+    const f = group(x, H + 2.7, D.z1);
+    mesh(new THREE.PlaneGeometry(1.2, .7), new THREE.MeshLambertMaterial({map:textTex('✦ 행복모터스', {w:256, h:150, bg:i ? '#1f5fae' : '#ffffff', fg:i ? '#ffffff' : '#1f5fae', border:false, font:42}), side:THREE.DoubleSide}), .62, 0, 0, f, false);
+    D.flags.push(f);
+  });
+}
+function updateDealer(dt){
+  DEALER.tables.forEach((t, i) => t.rotation.y += dt*(.22 + i*.03));
+  DEALER.flags.forEach((f, i) => f.rotation.y = Math.sin(T*2.2 + i)*.35);
+}
+function nearShowCar(){
+  if(PLAYER.inHome || PLAYER.inStore || PLAYER.inPrem || DRIVE.active) return null;
+  let best = null, bd = 3.0;
+  DEALER.cars.forEach(c => { const d = Math.hypot(PLAYER.x - c.x, PLAYER.z - c.z); if(d < bd){ bd = d; best = c; } });
+  return best;
+}
+function carPrice(id){ return Math.round(CAR_MODELS[id].price * (S.role === 'customer' ? .3 : 1) / 1000) * 1000; }
+function showCarModal(c){
+  const m = CAR_MODELS[c.id], wallet = S.role === 'customer' ? 'wallet' : 'money', price = carPrice(c.id);
+  S.cars = S.cars || [];
+  const owned = S.cars.includes(c.id), mine = S.myCar === c.id;
+  const wasPaused = S.paused; S.paused = true;
+  const close = () => { S.paused = wasPaused; hideModal(); };
+  const btns = [];
+  if(mine) btns.push(['✅ 지금 타는 차예요', close, 'primary']);
+  else if(owned) btns.push(['🔑 이 차로 바꾸기', () => { setMyCar(c.id, m.colors[c.ci]); close(); toast(`🚗 ${m.name}(으)로 바꿨어요!`); }, 'primary']);
+  else btns.push([`💳 구매하기 · ${won(price)}원`, () => {
+    if(S[wallet] < price){ toast(`돈이 모자라요 💸 (${won(price)}원 필요)`); return; }
+    S[wallet] -= price; S.cars.push(c.id); sfx.coin(); sfx.bell(); updateHUD();
+    setMyCar(c.id, m.colors[c.ci]); close();
+    toast(`🎉 ${m.name} 출고 완료! 원래 내 차 자리에서 기다리고 있어요`);
+  }, 'primary']);
+  btns.push(['🎨 색 바꾸기', () => { c.ci = (c.ci + 1) % m.colors.length; c.car.userData.paint.color.set(m.colors[c.ci]); S.paused = wasPaused; showCarModal(c); }]);
+  btns.push(['닫기', close]);
+  showModal(`<h2>${m.icon} 행복모터스 ${m.name}</h2>
+    <p>${m.kind} · 색상 <b>${m.colorN[c.ci]}</b></p>
+    <div class="sumrow"><span>최고 속도</span><b>${m.vmax*6} km/h</b></div>
+    <div class="sumrow"><span>가속</span><b>${'★'.repeat(Math.round(m.acc*3))}${'☆'.repeat(Math.max(0, 5 - Math.round(m.acc*3)))}</b></div>
+    ${m.ev ? '<p>⚡ 전기차라 조용하고 출발이 빨라요!</p>' : ''}
+    <div class="sumrow total"><span>가격</span><b>${won(price)}원${S.role === 'customer' ? ' (손님 할부 특가)' : ''}</b></div>
+    <div class="sumrow"><span>가진 돈</span><b>${won(S[wallet])}원</b></div>
+    ${owned ? '<p>이미 갖고 있는 차예요.</p>' : ''}`, btns);
+}
+function setMyCar(id, color){
+  const m = CAR_MODELS[id];
+  if(DRIVE.car) scene.remove(DRIVE.car);
+  const g = makeModelCar(id, color);
+  plane(.9, .3, sMat(textTex('내 차', {w:256, h:96, bg:'#fffaf2', font:60})), 0, m.roof + .12, 0, g).rotation.x = -Math.PI/2;
+  g.position.set(DRIVE.x, 0, DRIVE.z); g.rotation.y = DRIVE.h;
+  DRIVE.car = g; DRIVE.wheels = g.userData.wheels; DRIVE.vmax = m.vmax; DRIVE.acc = m.acc; S.myCar = id;
 }
 /* ======================= 서울 풍경 (한강공원·한강·다리·스카이라인·남산 타워) ======================= */
 // 목욕탕 뒤쪽(북쪽, z -22 아래)에 펼쳐진 서울. 카메라를 낮추면(T/G·드래그) 멀리 스카이라인이 보여요.
@@ -850,7 +1127,7 @@ function buildSeoul(){
   const hole = plane(2.8, 3.8, M('#2c3136'), 0, .015, 0, st); hole.rotation.x = -Math.PI/2;
   for(let i=0;i<6;i++){ const s = plane(2.8,.12,M('#c9c4b8'),0,.02,1.6-i*.6,st); s.rotation.x = -Math.PI/2; }
   const sign = mesh(new THREE.PlaneGeometry(3,.7), new THREE.MeshLambertMaterial({map:textTex('🚇 한강공원역',{w:512,h:120,bg:'#ffffff',fg:'#24323a',border:'#3fae5a',font:56}), emissive:'#ffffff', emissiveIntensity:.12}), 0, 2.98, 2.12, st, false);
-  W.nightGlow.push(sign.material);
+  (W.nightGlow = W.nightGlow || []).push(sign.material);
   box(3.1,.75,.1,M('#3fae5a'),0,2.98,2.06,st);
   OBST.push([-31.7,-28.8,-28.3,-24.2]);
 
@@ -1042,9 +1319,9 @@ function updateCar(dt){
   const thr = ((k.KeyW||k.ArrowUp)?1:0) - ((k.KeyS||k.ArrowDown)?1:0) - J.y;
   const steer = ((k.KeyA||k.ArrowLeft)?1:0) - ((k.KeyD||k.ArrowRight)?1:0) - J.x;
   const D = DRIVE;
-  if(thr > .1) D.speed += 9*thr*dt; else if(thr < -.1) D.speed += (D.speed > 0 ? 16 : 6)*thr*dt;
+  if(thr > .1) D.speed += 9*(D.acc||1)*thr*dt; else if(thr < -.1) D.speed += (D.speed > 0 ? 16 : 6)*thr*dt;
   else D.speed *= Math.pow(.35, dt);
-  D.speed = clamp(D.speed, -5, 15);
+  D.speed = clamp(D.speed, -5, D.vmax||15);
   D.h += clamp(steer,-1,1) * D.speed * .22 * dt;
   const ox = D.x, oz = D.z;
   D.x += Math.cos(D.h) * D.speed * dt; D.z += -Math.sin(D.h) * D.speed * dt;
@@ -1052,6 +1329,7 @@ function updateCar(dt){
   if(Math.hypot(P.x - D.x, P.z - D.z) > .01){ if(Math.abs(D.speed) > 6){ beep(120,.2,'sawtooth',.05); toast('쾅! 💥'); } D.speed *= -.3; }
   D.x = P.x; D.z = P.z;
   D.car.position.set(D.x, Math.abs(D.speed) > .5 ? Math.sin(T*30)*.015 : 0, D.z); D.car.rotation.y = D.h;
+  if(D.wheels) D.wheels.forEach(w => w.rotation.z -= D.speed*dt/.3);
   PLAYER.x = D.x; PLAYER.z = D.z; PLAYER.p.g.position.set(D.x, 0, D.z);
   if(PLAYER.follow) cam.target.lerp(new THREE.Vector3(D.x, 0, D.z), Math.min(1, dt*4));
   PLAYER.hintEl.innerHTML = `<b>E</b> 내리기 · <b>H</b> 경적 · ${Math.round(Math.abs(D.speed)*6)}km/h`; PLAYER.hintEl.style.display = '';
@@ -1069,6 +1347,7 @@ function interactMain(){
   if(nearHomeDoor()) return exitHome();
   if(nearAptDoor()) return enterHome();
   if(PLAYER.inHome) return;
+  const sc = nearShowCar(); if(sc) return showCarModal(sc);
   if(nearCar()) return enterCar();
   const {cust, fac} = nearestTargets();
   if(S.role==='customer'){ if(fac==='milk') return buyMilkMe(); if(fac && FAC[fac]) return useFacility(fac); return; }
@@ -1132,6 +1411,7 @@ function updatePlayer(dt){
   else if(nearHomeDoor()) h = '<b>E</b> 밖으로 나가기 🚪';
   else if(nearAptDoor()) h = '<b>E</b> 우리 집 들어가기 🏠';
   else if(PLAYER.inHome) h = '';
+  else if(nearShowCar()){ const sc = nearShowCar(), cm = CAR_MODELS[sc.id]; h = `<b>E</b> ${cm.icon} ${cm.name} 살펴보기 · ${won(carPrice(sc.id))}원${S.myCar===sc.id ? ' (내 차)' : ''}`; }
   else if(nearCar()) h = '<b>E</b> 내 차 타기 🚗';
   else if(S.role==='customer'){ if(fac==='milk') h = '<b>E</b> 바나나우유 사 먹기 · 2,500원'; else if(fac && FAC[fac]) h = `<b>E</b> ${FAC[fac].icon} ${FAC[fac].name} 이용하기 · ${won(FAC[fac].pay)}원`; }
   else if(cust && cust.yelling) h = `<b>E</b> ${cust.name} 진정시키기 💢`;
@@ -1183,9 +1463,9 @@ function setupPlayerInput(){
 }
 
 /* ======================= 아파트 (우리 집) ======================= */
-const HX = 70, APT = {x:24, z:2, door:{x:24, z:5.5}};
-const HOME_DOOR_IN = {x:66.8, z:2.7}, BED = [71.4,-3.0,73.6,0];
-const HOME_OBST = [BED, [66,-3.2,67.8,-2.0], [73.1,1.2,74.2,3.2]];
+const HX = 370, APT = {x:24, z:2, door:{x:24, z:5.5}};
+const HOME_DOOR_IN = {x:366.8, z:2.7}, BED = [371.4,-3.0,373.6,0];
+const HOME_OBST = [BED, [366,-3.2,367.8,-2.0], [373.1,1.2,374.2,3.2]];
 const NIGHT_SKY = window.THREE ? new THREE.Color('#1a2342') : null;
 function buildApartment(){
   // 바깥 건물
@@ -1238,7 +1518,7 @@ function sleep(){
   if(S.phase!=='night') return toast(S.phase==='day' || S.phase==='closing' ? '아직 영업 중이에요! 목욕탕으로 가요 🏃' : '지금은 잘 시간이 아니에요');
   S.phase = 'sleeping';
   S.sleptPrem = !!PLAYER.inPrem;
-  PLAYER.sleepPos = PLAYER.inPrem ? {x:133, z:-1.8} : {x:HX+2.5, z:-.4};
+  PLAYER.sleepPos = PLAYER.inPrem ? {x:433, z:-1.8} : {x:HX+2.5, z:-.4};
   const f = $('#fade'); f.textContent = '💤 쿨쿨…'; f.classList.add('on');
   beep(330,.4,'sine',.04); setTimeout(()=>beep(262,.5,'sine',.04),400);
   setTimeout(() => { f.textContent = '☀️ 아침이에요!'; S.phase = 'morning'; sfx.bell(); }, 2600);
@@ -1313,7 +1593,7 @@ function adminAction(a){
 }
 
 /* ======================= 가게 안 (편의점·천원샵에서 직접 골라 사기) ======================= */
-const SX = 100, DX = 160;
+const SX = 400, DX = 460;
 const OWNER_ITEMS = [
   {ico:'🍌🥛', name:'바나나우유 6병',   desc:'냉장고 재고 +6',            cost:9000,  col:'#ffd94a', buy(){ S.milk.stock += 6; }},
   {ico:'🧴',  name:'세제·샴푸 세트',   desc:'모든 시설 청결 100%',       cost:8000,  col:'#56ccf2', buy(){ for(const k in FAC) S.fac[k].clean = 100; }},
@@ -1364,17 +1644,17 @@ const PET_CUST = [
 ];
 [...PET_OWNER, ...PET_CUST].forEach(it => { if(it.pet){ const t = it.pet; it.ok = () => S.pet !== t; it.why = '이미 같이 살고 있어요'; } });
 const PET_NAME = {dog:'강아지', cat:'고양이', hamster:'햄스터'};
-const PET_X = 190;
+const PET_X = 490;
 const SHOPS = {
-  conv:  {name:'편의점', X:SX, doorOut:{x:-15, z:8.4}, doorIn:{x:96.4, z:2.9}, counter:{x:103.4, z:2.7},
-          shelves:[[97,-2.5],[99.3,-2.5],[101.6,-2.5],[97.8,.3],[100.6,.3]], sw:1.6, bounds:[-4.2,4.2,-3.2,3.3],
-          counterRect:[102.6,1.4,104.4,2.2], owner:OWNER_ITEMS, cust:CUST_ITEMS, hello:'"어서 오세요~" 진열대 앞에서 E로 담고, 계산대에서 E로 계산해요'},
-  daiso: {name:'천원샵', X:DX, doorOut:{x:-24, z:8.4}, doorIn:{x:155.8, z:3.3}, counter:{x:163.4, z:2.9},
-          shelves:[[156.8,-2.7],[159.8,-2.7],[162.8,-2.7],[156.8,.4],[159.8,.4],[162.8,.4]], sw:2.0, bounds:[-5.2,5.2,-3.7,3.8],
-          counterRect:[163.85,1.9,164.95,3.75], owner:DAISO_OWNER, cust:DAISO_CUST, hello:'"행복 천원샵입니다~" 진열대 앞에서 E로 담고, 계산대에서 E로 계산해요'},
-  pet:   {name:'펫샵', X:PET_X, doorOut:{x:-37, z:8.4}, doorIn:{x:185.8, z:3.0}, counter:{x:193.3, z:2.9},
-          shelves:[[186.6,-2.5],[189.4,-2.5],[192.2,-2.5],[186.6,.3],[189.4,.3],[192.2,.3]], sw:1.8, bounds:[-4.7,4.7,-3.4,3.5],
-          counterRect:[193.8,1.85,194.8,3.65], owner:PET_OWNER, cust:PET_CUST, hello:'"멍멍! 행복 펫샵이에요~" 진열대 앞에서 E로 담고, 계산대에서 E로 계산해요'},
+  conv:  {name:'편의점', X:SX, doorOut:{x:-15, z:8.4}, doorIn:{x:396.4, z:2.9}, counter:{x:403.4, z:2.7},
+          shelves:[[397,-2.5],[399.3,-2.5],[401.6,-2.5],[397.8,.3],[400.6,.3]], sw:1.6, bounds:[-4.2,4.2,-3.2,3.3],
+          counterRect:[402.6,1.4,404.4,2.2], owner:OWNER_ITEMS, cust:CUST_ITEMS, hello:'"어서 오세요~" 진열대 앞에서 E로 담고, 계산대에서 E로 계산해요'},
+  daiso: {name:'천원샵', X:DX, doorOut:{x:-24, z:8.4}, doorIn:{x:455.8, z:3.3}, counter:{x:463.4, z:2.9},
+          shelves:[[456.8,-2.7],[459.8,-2.7],[462.8,-2.7],[456.8,.4],[459.8,.4],[462.8,.4]], sw:2.0, bounds:[-5.2,5.2,-3.7,3.8],
+          counterRect:[463.85,1.9,464.95,3.75], owner:DAISO_OWNER, cust:DAISO_CUST, hello:'"행복 천원샵입니다~" 진열대 앞에서 E로 담고, 계산대에서 E로 계산해요'},
+  pet:   {name:'펫샵', X:PET_X, doorOut:{x:-37, z:8.4}, doorIn:{x:485.8, z:3.0}, counter:{x:493.3, z:2.9},
+          shelves:[[486.6,-2.5],[489.4,-2.5],[492.2,-2.5],[486.6,.3],[489.4,.3],[492.2,.3]], sw:1.8, bounds:[-4.7,4.7,-3.4,3.5],
+          counterRect:[493.8,1.85,494.8,3.65], owner:PET_OWNER, cust:PET_CUST, hello:'"멍멍! 행복 펫샵이에요~" 진열대 앞에서 E로 담고, 계산대에서 E로 계산해요'},
 };
 for(const id in SHOPS){ const s = SHOPS[id]; s.id = id; s.labels = []; s.obst = s.shelves.map(([x,z]) => [x-s.sw/2, z-.45, x+s.sw/2, z+.45]).concat([s.counterRect]); }
 // 밤에 산 먹거리·바디워시는 다음 날 아침 개운함으로 넘어가요 (자면 개운함이 0으로 초기화되므로)
@@ -1400,11 +1680,11 @@ function buildStoreInterior(){
     const lab = plane(1.6, .62, shelfLabelMat(OWNER_ITEMS[i]), 0, 1.95, .05, sg);
     s.labels.push({lab, prods, own:lab.material, cust:shelfLabelMat(CUST_ITEMS[i]), ownerCol, custCol});
   });
-  box(1.8, 1.0, .8, M('#4fae5c'), 103.5-SX, .5, 1.8, g); box(1.9, .06, .9, M('#f6f4ee'), 103.5-SX, 1.03, 1.8, g);
-  box(.4,.25,.3,M('#333'), 103.8-SX, 1.18, 1.8, g);
+  box(1.8, 1.0, .8, M('#4fae5c'), 403.5-SX, .5, 1.8, g); box(1.9, .06, .9, M('#f6f4ee'), 403.5-SX, 1.03, 1.8, g);
+  box(.4,.25,.3,M('#333'), 403.8-SX, 1.18, 1.8, g);
   const clerk = makePerson({name:'알바', skin:'#f6cfa9', hair:'#3a2a20', style:'long', towel:'#2f8f45', shirt:'#4fae5c', s:.97});
-  clerk.g.position.set(103.5, 0, 1.0); W.npcs.push({p:clerk, type:'owner'});
-  box(1.0, 2.2, .1, new THREE.MeshLambertMaterial({color:'#c8ecff', transparent:true, opacity:.5}), 96.4-SX, 1.1, 3.4, g);
+  clerk.g.position.set(403.5, 0, 1.0); W.npcs.push({p:clerk, type:'owner'});
+  box(1.0, 2.2, .1, new THREE.MeshLambertMaterial({color:'#c8ecff', transparent:true, opacity:.5}), 396.4-SX, 1.1, 3.4, g);
   const lt = new THREE.PointLight('#ffffff', .8, 14); lt.position.set(SX, 3, 0); scene.add(lt);
 }
 // 천원샵 진열 상품 모양 (물건마다 생김새가 달라요)
@@ -1522,7 +1802,7 @@ function buildDaisoInterior(){
     [-.9,.9].forEach(o => cyl(.008,.008,.5,M('#888'),x+o,3.3,z,g,4));
   });
   // 계산대 + 직원
-  const ct = group(164.4-DX, 0, 2.85, g);
+  const ct = group(464.4-DX, 0, 2.85, g);
   box(1.0, 1.0, 2.0, M('#3fb8a5'), 0, .5, 0, ct); box(1.1, .06, 2.1, M('#fffaf0'), 0, 1.03, 0, ct);
   box(1.02, .12, 2.02, M('#ffd34d'), 0, .8, 0, ct);
   box(.32,.22,.3,M('#333'),.1,1.17,.5,ct);
@@ -1531,11 +1811,11 @@ function buildDaisoInterior(){
   for(let i=0;i<6;i++) sph(.035,M(pick(['#e85d5d','#ffd34d','#56ccf2','#6fcf97'])),rnd(-.06,.06),1.1+rnd(0,.12),-.55+rnd(-.06,.06),ct,6);
   basketMesh(ct, 0, 1.06, -.05, '#3fb8a5', .9);
   const clerk = makePerson({name:'천원샵 직원', skin:'#f3caa4', hair:'#2a1c14', style:'bun', towel:'#3fb8a5', shirt:'#3fb8a5', s:.97});
-  clerk.g.position.set(165.25, 0, 2.85); clerk.g.rotation.y = -Math.PI/2;
+  clerk.g.position.set(465.25, 0, 2.85); clerk.g.rotation.y = -Math.PI/2;
   box(.46,.5,.05,M('#ffd34d'),0,.72,.27,clerk.g);
   W.npcs.push({p:clerk, type:'owner'});
   // 구경하는 손님들
-  [[158.3,-1.55,PEOPLE[9],'#ff8fb1'],[161.6,1.6,PEOPLE[4],'#4a90d9']].forEach(([x,z,sp,shirt]) => {
+  [[458.3,-1.55,PEOPLE[9],'#ff8fb1'],[461.6,1.6,PEOPLE[4],'#4a90d9']].forEach(([x,z,sp,shirt]) => {
     const p = makePerson(Object.assign({}, sp, {shirt}));
     p.g.position.set(x, 0, z); p.g.rotation.y = Math.PI;
     basketMesh(p.g, .36, .52, .1, '#ffd34d', .8);
@@ -1543,12 +1823,12 @@ function buildDaisoInterior(){
     s.obst.push([x-.32, z-.32, x+.32, z+.32]);
   });
   // 입구: 자동문, 발판, 장바구니 쌓아두기
-  box(1.3, 2.3, .1, new THREE.MeshLambertMaterial({color:'#c8ecff', transparent:true, opacity:.5}), 155.8-DX, 1.15, 3.95, g);
-  const mat = plane(1.4, .8, sMat(textTex('어서 오세요',{w:256,h:128,bg:'#2f8f80',fg:'#ffffff',border:false,font:40})), 155.8-DX, .035, 3.3, g); mat.rotation.x = -Math.PI/2;
-  for(let i=0;i<6;i++) basketMesh(g, 154.95-DX, i*.11, 2.3, i%2 ? '#3fb8a5' : '#ffd34d');
-  s.obst.push([154.6,2.0,155.3,2.6]);
-  cyl(.26,.2,.5,M('#c0583b'),165-DX,.25,-3.5,g,12); sph(.42,M('#4f9a5a'),165-DX,.85,-3.5,g,12);
-  s.obst.push([164.5,-3.95,165.5,-3.0]);
+  box(1.3, 2.3, .1, new THREE.MeshLambertMaterial({color:'#c8ecff', transparent:true, opacity:.5}), 455.8-DX, 1.15, 3.95, g);
+  const mat = plane(1.4, .8, sMat(textTex('어서 오세요',{w:256,h:128,bg:'#2f8f80',fg:'#ffffff',border:false,font:40})), 455.8-DX, .035, 3.3, g); mat.rotation.x = -Math.PI/2;
+  for(let i=0;i<6;i++) basketMesh(g, 454.95-DX, i*.11, 2.3, i%2 ? '#3fb8a5' : '#ffd34d');
+  s.obst.push([454.6,2.0,455.3,2.6]);
+  cyl(.26,.2,.5,M('#c0583b'),465-DX,.25,-3.5,g,12); sph(.42,M('#4f9a5a'),465-DX,.85,-3.5,g,12);
+  s.obst.push([464.5,-3.95,465.5,-3.0]);
   const lt = new THREE.PointLight('#fff8ee', .85, 16); lt.position.set(DX, 3.2, 0); scene.add(lt);
 }
 function applyStoreRole(){
@@ -1767,25 +2047,25 @@ function buildPetShopInterior(){
     s.labels.push({lab, own:lab.material, cust:shelfLabelMat(PET_CUST[i]), gOwn, gCust});
   });
   // 강아지 놀이 울타리 (아기 강아지들이 뛰어놀아요)
-  const pen = group(190.8-PET_X, 0, 2.6, g);
+  const pen = group(490.8-PET_X, 0, 2.6, g);
   plane(1.6, 1.0, M('#cfe8a8'), 0, .02, 0, pen).rotation.x = -Math.PI/2;
   [[0,-.5,1.6,.02],[0,.5,1.6,.02],[-.8,0,.02,1.0],[.8,0,.02,1.0]].forEach(([x,z,w2,d2]) => box(w2 < .1 ? .04 : w2, .35, d2 < .1 ? .04 : d2, M('#ffffff'), x, .175, z, pen));
   W.penPups = [];
   [[-.35,-.1,'dog'],[.3,.15,'dog'],[.0,.25,'cat']].forEach(([x,z,t]) => { const pp = makePet(t, pen, .6); pp.g.position.set(x, 0, z); W.penPups.push({pp, x, z, ph:Math.random()*6}); });
-  s.obst.push([190.0, 2.05, 191.6, 3.15]);
+  s.obst.push([490.0, 2.05, 491.6, 3.15]);
   // 계산대 + 직원
-  const ct = group(194.3-PET_X, 0, 2.75, g);
+  const ct = group(494.3-PET_X, 0, 2.75, g);
   box(1.0, 1.0, 1.8, M('#e8875a'), 0, .5, 0, ct); box(1.1, .06, 1.9, M('#fff4e2'), 0, 1.03, 0, ct);
   box(.32, .22, .3, M('#333'), .1, 1.17, .45, ct);
   cyl(.12, .12, .2, new THREE.MeshLambertMaterial({color:'#ffffff', transparent:true, opacity:.6}), 0, 1.16, -.5, ct, 12);
   const clerk = makePerson({name:'펫샵 사장님', skin:'#f3caa4', hair:'#5a4030', style:'long', towel:'#8b5a2b', shirt:'#e8875a', s:.98, glasses:1});
-  clerk.g.position.set(195.1, 0, 2.75); clerk.g.rotation.y = -Math.PI/2;
+  clerk.g.position.set(495.1, 0, 2.75); clerk.g.rotation.y = -Math.PI/2;
   box(.46, .5, .05, M('#fff4e2'), 0, .72, .27, clerk.g);
   const cpet = makePet('cat', ct, .7); cpet.g.position.set(.15, 1.06, -.1); cpet.g.rotation.y = -1.2; W.penPups.push({pp:cpet, still:true, ph:1});
   W.npcs.push({p:clerk, type:'owner'});
   // 문, 발판
-  box(1.3, 2.3, .1, new THREE.MeshLambertMaterial({color:'#c8ecff', transparent:true, opacity:.5}), 185.8-PET_X, 1.15, 3.65, g);
-  const mt = plane(1.4, .8, sMat(textTex('🐾 어서 오세요',{w:256,h:128,bg:'#8b5a2b',fg:'#ffffff',border:false,font:36})), 185.8-PET_X, .035, 3.0, g); mt.rotation.x = -Math.PI/2;
+  box(1.3, 2.3, .1, new THREE.MeshLambertMaterial({color:'#c8ecff', transparent:true, opacity:.5}), 485.8-PET_X, 1.15, 3.65, g);
+  const mt = plane(1.4, .8, sMat(textTex('🐾 어서 오세요',{w:256,h:128,bg:'#8b5a2b',fg:'#ffffff',border:false,font:36})), 485.8-PET_X, .035, 3.0, g); mt.rotation.x = -Math.PI/2;
   const lt = new THREE.PointLight('#fff2e0', .85, 15); lt.position.set(PET_X, 3.1, 0); scene.add(lt);
 }
 // 가게 고양이(카운터 위 낮잠)와 대기실 어항 — 사장님이 펫샵에서 사면 나타나요
@@ -2489,8 +2769,8 @@ function endDayCustomer(){
 const PREM_PRICE = 1000000, PREM_PRICE_CUST = 150000;
 const premPrice = () => S.role==='customer' ? PREM_PRICE_CUST : PREM_PRICE;
 const PT ={x:30.5, z:-6, door:{x:30.5, z:-2.3}};
-const PX = 130, PREM_DOOR_IN = {x:125, z:3.6}, PBED = [131.6,-4.4,134.4,-1.0], JACUZZI = {x:127.2, z:-2.2, r:1.25};
-const PREM_OBST = [PBED, [124.6,-1.2,128.4,.2], [129,1.6,131.6,2.4], [134.8,-.8,135.8,2.6], [JACUZZI.x-1.3,JACUZZI.z-1.3,JACUZZI.x+1.3,JACUZZI.z+1.3]];
+const PX = 430, PREM_DOOR_IN = {x:425, z:3.6}, PBED = [431.6,-4.4,434.4,-1.0], JACUZZI = {x:427.2, z:-2.2, r:1.25};
+const PREM_OBST = [PBED, [424.6,-1.2,428.4,.2], [429,1.6,431.6,2.4], [434.8,-.8,435.8,2.6], [JACUZZI.x-1.3,JACUZZI.z-1.3,JACUZZI.x+1.3,JACUZZI.z+1.3]];
 function buildPremium(){
   // 바깥: 유리 타워
   const winTex = canvasTex(256,512,(g,w,h)=>{ g.fillStyle='#2c4a66'; g.fillRect(0,0,w,h);
@@ -2523,29 +2803,29 @@ function buildPremium(){
   [-4,-1.3,1.3,4].forEach(x => box(.08, 3.6, .12, M('#d4af37'), x, 1.8, -4.62, g));
   box(12, .15, .2, M('#d4af37'), 0, 3.55, -4.62, g);
   // 킹 침대
-  box(2.8, .45, 3.4, M('#3b2a22'), 133-PX, .22, -2.7, g); box(2.7, .3, 3.3, M('#ffffff'), 133-PX, .6, -2.7, g);
-  box(2.75, .14, 2.1, M('#d4af37'), 133-PX, .78, -2.0, g);
-  [-.6,.6].forEach(dx => box(.9, .2, .5, M('#fffaf2'), 133-PX+dx, .82, -3.9, g));
-  box(3.0, 1.5, .2, M('#3b2a22'), 133-PX, 1.0, -4.45, g);
+  box(2.8, .45, 3.4, M('#3b2a22'), 433-PX, .22, -2.7, g); box(2.7, .3, 3.3, M('#ffffff'), 433-PX, .6, -2.7, g);
+  box(2.75, .14, 2.1, M('#d4af37'), 433-PX, .78, -2.0, g);
+  [-.6,.6].forEach(dx => box(.9, .2, .5, M('#fffaf2'), 433-PX+dx, .82, -3.9, g));
+  box(3.0, 1.5, .2, M('#3b2a22'), 433-PX, 1.0, -4.45, g);
   // 개인 자쿠지
   cyl(JACUZZI.r, JACUZZI.r, .7, M('#e9e4da'), JACUZZI.x-PX, .35, JACUZZI.z, g, 28);
   const jw = cyl(JACUZZI.r-.15, JACUZZI.r-.15, .05, new THREE.MeshLambertMaterial({color:'#5fd0e8', transparent:true, opacity:.8}), JACUZZI.x-PX, .66, JACUZZI.z, g, 28);
   W.jacuzziWater = jw;
   // L자 소파 + 테이블 + 대형 TV
-  box(3.6, .45, 1.0, M('#6b4f9a'), 126.5-PX, .35, -.5, g); box(3.6, .6, .25, M('#5a3f88'), 126.5-PX, .75, -.95, g);
-  box(1.4, .35, .7, M('#d4af37'), 130.3-PX, .18, 2.0, g);
-  box(.15, 1.6, 3.2, M('#111'), 135.4-PX, 1.5, .9, g); box(.6, .5, 3.4, M('#2b2b2b'), 135.3-PX, .25, .9, g);
-  const scr = plane(3.0, 1.45, new THREE.MeshBasicMaterial({color:'#5fb4dc'}), 135.31-PX, 1.5, .9, g); scr.rotation.y = -Math.PI/2; W.premTV = scr;
+  box(3.6, .45, 1.0, M('#6b4f9a'), 426.5-PX, .35, -.5, g); box(3.6, .6, .25, M('#5a3f88'), 426.5-PX, .75, -.95, g);
+  box(1.4, .35, .7, M('#d4af37'), 430.3-PX, .18, 2.0, g);
+  box(.15, 1.6, 3.2, M('#111'), 435.4-PX, 1.5, .9, g); box(.6, .5, 3.4, M('#2b2b2b'), 435.3-PX, .25, .9, g);
+  const scr = plane(3.0, 1.45, new THREE.MeshBasicMaterial({color:'#5fb4dc'}), 435.31-PX, 1.5, .9, g); scr.rotation.y = -Math.PI/2; W.premTV = scr;
   // 수족관
-  box(2.2, 1.2, .7, new THREE.MeshLambertMaterial({color:'#7fd6ff', transparent:true, opacity:.45}), 126-PX, 1.2, 3.8, g);
-  box(2.3, .6, .8, M('#2b2b2b'), 126-PX, .3, 3.8, g);
+  box(2.2, 1.2, .7, new THREE.MeshLambertMaterial({color:'#7fd6ff', transparent:true, opacity:.45}), 426-PX, 1.2, 3.8, g);
+  box(2.3, .6, .8, M('#2b2b2b'), 426-PX, .3, 3.8, g);
   W.fish = [];
-  for(let i=0;i<5;i++){ const f = new THREE.Mesh(new THREE.ConeGeometry(.06,.2,6), M(pick(['#ff7a45','#f2c94c','#ff8fb1','#56ccf2']))); f.rotation.z = Math.PI/2; f.position.set(126-PX, 1.0+Math.random()*.4, 3.8); g.add(f); W.fish.push({f, ph:Math.random()*6, sp:rnd(.6,1.2)}); }
+  for(let i=0;i<5;i++){ const f = new THREE.Mesh(new THREE.ConeGeometry(.06,.2,6), M(pick(['#ff7a45','#f2c94c','#ff8fb1','#56ccf2']))); f.rotation.z = Math.PI/2; f.position.set(426-PX, 1.0+Math.random()*.4, 3.8); g.add(f); W.fish.push({f, ph:Math.random()*6, sp:rnd(.6,1.2)}); }
   // 샹들리에, 화분, 현관
-  const ch = group(130-PX, 3.1, 0, g);
+  const ch = group(430-PX, 3.1, 0, g);
   for(let i=0;i<10;i++){ const a = i/10*Math.PI*2; sph(.09, new THREE.MeshLambertMaterial({color:'#fff6d0', emissive:'#ffe08a', emissiveIntensity:.8}), Math.cos(a)*.5, -.2, Math.sin(a)*.5, ch, 8); }
   cyl(.02,.02,.6,M('#d4af37'),0,.1,0,ch,6);
-  cyl(.3,.24,.6,M('#d4af37'),135-PX,.3,-4.0,g,12); sph(.55,M('#4f9a5a'),135-PX,1.1,-4.0,g);
+  cyl(.3,.24,.6,M('#d4af37'),435-PX,.3,-4.0,g,12); sph(.55,M('#4f9a5a'),435-PX,1.1,-4.0,g);
   box(1.0, 2.4, .1, M('#3b2a22'), PREM_DOOR_IN.x-PX, 1.2, 4.62, g);
   const pl = new THREE.PointLight('#fff1d6', 1.1, 18); pl.position.set(PX, 3, 0); scene.add(pl);
 }
@@ -2579,7 +2859,7 @@ function soakJacuzzi(){
 function updatePremFx(dt){
   if(W.premViewMat){ const night = (W.night||0) > .5; W.premViewMat.color.set(night ? '#ffffff' : '#9fd8f5'); W.premViewMat.map = night ? W.premView : null; W.premViewMat.needsUpdate = true; }
   if(W.premWin) W.premWin.emissiveIntensity = .05 + (W.night||0)*.7;
-  (W.fish||[]).forEach(o => { o.f.position.x = 126-PX + Math.sin(T*o.sp + o.ph)*.9; o.f.rotation.y = Math.cos(T*o.sp + o.ph) > 0 ? 0 : Math.PI; });
+  (W.fish||[]).forEach(o => { o.f.position.x = 426-PX + Math.sin(T*o.sp + o.ph)*.9; o.f.rotation.y = Math.cos(T*o.sp + o.ph) > 0 ? 0 : Math.PI; });
   if(W.premTV) W.premTV.material.color.setHSL((T*.05)%1, .5, .55);
   if(W.jacuzziWater) W.jacuzziWater.position.y = .66 + Math.sin(T*6)*.015;
 }
@@ -3269,6 +3549,7 @@ function loop(ts){
     updatePets(dt);
     updateTraffic(dt);
     updateSeoul(dt);
+    updateDealer(dt);
   }
   updateCamera();
   followSun();

@@ -219,6 +219,7 @@ const UPG = [
   {id:'cleaner',  ico:'🧹', name:'청소 이모님',     desc:'더러워지면 알아서 청소 · 일당 8천 원',   cost:()=>40000, max:1},
   {id:'chairs',   ico:'💺', name:'안마의자',        desc:'대기 손님 인내심 +35%',                cost:()=>30000, max:1},
   {id:'fridge',   ico:'🥛', name:'대형 냉장고',     desc:'바나나우유 하루 재고 +6',              cost:l=>15000+l*10000, max:2},
+  {id:'remodel',  ico:'🏗️', name:'행복탕 리모델링', desc:'단계마다 요금 +10% · 만족도 +4 (1 금빛 장식 → 2 실내 폭포 → 3 샹들리에·레드카펫)', cost:l=>80000+l*70000, max:3},
 ];
 
 /* ======================= 공간 배치 (3D 좌표) ======================= */
@@ -668,6 +669,7 @@ function buildOutside(){
   W.hallLight = new THREE.PointLight('#ffe9c4', 0, 30); W.hallLight.position.set(0, 6, -1); scene.add(W.hallLight);
   buildApartment();
   buildParking();
+  buildBathUpgrade();
   buildSeoul();
   box(1.6,.1,.45,M('#a8703c'),6,.45,9.1); box(1.6,.4,.06,M('#a8703c'),6,.7,8.9);
   box(.06,.42,.4,M('#555'),5.3,.21,9.1); box(.06,.42,.4,M('#555'),6.7,.21,9.1);
@@ -774,6 +776,117 @@ function buildRoadExt(){
     plane(2.6, .8, new THREE.MeshLambertMaterial({map:textTex(t,{w:384,h:120,bg:'#1f5fae',fg:'#ffffff',border:'#ffffff',font:50})}), x, 3.1, 9.8);
     OBST.push([x-.2, 9.55, x+.2, 9.85]);
   });
+}
+/* ======================= 행복탕 리모델링 + 코코아 자판기 ======================= */
+// 기본 장식(네온 간판·홍등·화분·벽시계·TV·모자이크)은 항상 보이고,
+// 상점 업그레이드 '행복탕 리모델링'(S.upg.remodel 1~3)을 살수록 장식이 더 생겨요 (요금 +10%·만족도 +4 / 단계)
+const BATH = {lanterns:[], tvTex:[], tvMat:null, tvT:0, tvI:0, lv:-1, lvG:[], fall:null, cocoa:{x:7.6, z:2.0}};
+function buildBathUpgrade(){
+  // 네온 간판 테두리 (밤에 빛남)
+  const neon = glowMat('#ff8fb8', '#ff4f8b');
+  [[-1.5, 6.0, 7.6, .08], [-1.5, 4.4, 7.6, .08]].forEach(([x, y, w, h]) => box(w, h, .06, neon, x, y, -7.28));
+  [-5.3, 2.3].forEach(x => box(.08, 1.68, .06, neon, x, 5.2, -7.28));
+  // 처마 홍등
+  [-8.2, -6.3, 2.9, 9.5].forEach((x, i) => {
+    const g = group(x, 4.1, -7.05);
+    cyl(.01, .01, .35, M('#333'), 0, -.17, 0, g, 4);
+    const body = sph(.26, glowMat('#e0342b', '#ff4a2a'), 0, -.55, 0, g, 14); body.scale.y = 1.25;
+    cyl(.12, .12, .06, M('#d4af37'), 0, -.22, 0, g, 10); cyl(.12, .12, .06, M('#d4af37'), 0, -.88, 0, g, 10);
+    cyl(.02, .02, .2, M('#d4af37'), 0, -1.0, 0, g, 4);
+    BATH.lanterns.push({g, ph:i*1.3});
+  });
+  // 입구 화분
+  [[-1.9, 6.7], [1.9, 6.7]].forEach(([x, z]) => { cyl(.26, .2, .55, M('#8b5a2b'), x, .27, z, scene, 12); sph(.42, M('#4e9a59'), x, .9, z, scene, 10); sph(.28, M('#5aa864'), x + .15, 1.2, z - .1, scene, 8); OBST.push([x - .3, z - .3, x + .3, z + .3]); });
+  // 벽시계 (뒷벽)
+  const clk = canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#fffaf2'; g.beginPath(); g.arc(64, 64, 60, 0, 7); g.fill(); g.lineWidth = 8; g.strokeStyle = '#7a2a22'; g.stroke();
+    g.fillStyle = '#24323a'; for(let i=0;i<12;i++){ const a = i/12*Math.PI*2; g.fillRect(64 + Math.sin(a)*46 - 3, 64 - Math.cos(a)*46 - 3, 6, 6); }
+    g.lineWidth = 6; g.beginPath(); g.moveTo(64, 64); g.lineTo(64, 30); g.stroke(); g.lineWidth = 4; g.beginPath(); g.moveTo(64, 64); g.lineTo(92, 64); g.stroke(); });
+  mesh(new THREE.CircleGeometry(.5, 24), sMat(clk), -9.2, 3.5, -7.0, scene, false);
+  // 벽 모자이크 띠
+  const mosaic = canvasTex(1024, 32, (g, w, h) => { const cs = ['#5fb4dc','#f39a78','#ffd94a','#6fcf97','#ffffff','#e85d5d']; for(let x=0;x<w;x+=16) for(let y=0;y<h;y+=16){ g.fillStyle = pick(cs); g.fillRect(x+1, y+1, 14, 14); } }, 2, 1);
+  plane(20.4, .5, sMat(mosaic), 0, 3.75, -7.46);
+  // 대기실 TV (칸막이 위, 화면이 4초마다 바뀜)
+  ['🌤️ 오늘의 날씨\n목욕하기 딱 좋은 날!', '📺 행복 뉴스\n행복탕, 동네 맛집(?) 선정', '🍫 따끈한 코코아\n자판기에서 1,500원', '♨️ 온탕 39~42℃\n냉탕 15~20℃ 유지 중'].forEach(t => BATH.tvTex.push(canvasTex(320, 180, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#1f5fae'); gr.addColorStop(1, '#0f2742'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#fff'; g.font = FONT(32); g.textAlign = 'center'; g.textBaseline = 'middle'; t.split('\n').forEach((l, i) => g.fillText(l, w/2, 64 + i*54));
+  })));
+  box(1.7, 1.0, .08, M('#1d1d1d'), -4.0, 2.35, 1.66);
+  BATH.tvMat = new THREE.MeshBasicMaterial({map:BATH.tvTex[0]});
+  mesh(new THREE.PlaneGeometry(1.56, .88), BATH.tvMat, -4.0, 2.35, 1.71, scene, false);
+  box(.08, .7, .08, M('#555'), -4.0, 1.55, 1.62);
+
+  // ── 리모델링 1단계: 금빛 장식·방석·SPA 간판 ──
+  const L1 = new THREE.Group(); scene.add(L1);
+  box(21.4, .12, .95, M('#d4af37'), 0, 4.45, -7.5, L1);
+  box(21.4, .12, .95, M('#d4af37'), 0, 4.05, -7.5, L1);
+  [[-4.0, 7.1], [2.0, 2.1]].forEach(([cx, len]) => box(len - .2, .1, .5, M('#c0392b'), cx, .56, 2.75, L1)); // 방석
+  const spa = mesh(new THREE.PlaneGeometry(1.2, 2.4), new THREE.MeshLambertMaterial({map:textTex(['S','P','A'], {w:128, h:256, bg:'#16324f', fg:'#ffe48a', border:'#ffe48a', font:66}), emissive:'#ffffff', emissiveIntensity:.15}), 7.2, 11.2, -8.38, L1, false);
+  (W.nightGlow = W.nightGlow || []).push(spa.material);
+  // ── 2단계: 실내 폭포·대나무 ──
+  const L2 = new THREE.Group(); scene.add(L2);
+  [[-3.0, .5], [-1.6, .7], [-.2, .45], [-2.3, .35], [-.9, .4]].forEach(([x, s], i) => { const r = mesh(new THREE.DodecahedronGeometry(s, 0), M(i%2 ? '#7d858c' : '#9aa3a8'), x, s*.7, -7.05, L2); r.rotation.set(rnd(0, 3), rnd(0, 3), 0); });
+  BATH.fall = canvasTex(64, 128, (g, w, h) => { g.fillStyle = '#7fd3ff'; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(255,255,255,.55)'; for(let i=0;i<30;i++) g.fillRect(rnd(0, w), rnd(0, h), 2, rnd(10, 30)); }, 3, 1);
+  const fw = mesh(new THREE.PlaneGeometry(2.2, 3.4), new THREE.MeshLambertMaterial({map:BATH.fall, transparent:true, opacity:.85, emissive:'#3fb0e0', emissiveIntensity:.25}), -1.6, 1.9, -6.98, L2, false);
+  const pool = plane(3.4, .8, new THREE.MeshLambertMaterial({color:'#5fb4dc', transparent:true, opacity:.8}), -1.6, .1, -7.0, L2); pool.rotation.x = -Math.PI/2;
+  box(3.6, .2, .12, M('#9aa3a8'), -1.6, .1, -6.6, L2);
+  [-9.3, 9.4].forEach(x => { for(let i=0;i<4;i++){ cyl(.04, .05, 3.2, M('#6fae4a'), x + (i%2)*.2, 1.6, -7.2 + Math.floor(i/2)*.2, L2, 6); sph(.3, M('#5aa864'), x + (i%2)*.2, 3.1 + i*.1, -7.2, L2, 8); } });
+  // ── 3단계: 샹들리에·레드카펫·별 다섯 개 명판 ──
+  const L3 = new THREE.Group(); scene.add(L3);
+  const crys = glowMat('#fff6dc', '#ffe9a8');
+  [[-4, -4.2], [1.2, -4.2], [-4, 4.2], [4.5, 4.2]].forEach(([x, z]) => { cyl(.015, .015, 1.0, M('#d4af37'), x, 5.3, z, L3, 4); const t = mesh(new THREE.TorusGeometry(.4, .04, 6, 20), M('#d4af37'), x, 4.8, z, L3, false); t.rotation.x = Math.PI/2;
+    for(let i=0;i<8;i++){ const a = i/8*Math.PI*2; sph(.07, crys, x + Math.cos(a)*.4, 4.65, z + Math.sin(a)*.4, L3, 6); } sph(.14, crys, x, 4.55, z, L3, 8); });
+  const carpet = plane(1.6, 3.2, M('#b0202a'), 0, .016, 8.6, L3); carpet.rotation.x = -Math.PI/2;
+  [-1, 1].forEach(s => { const e = plane(.08, 3.2, M('#d4af37'), s*.82, .017, 8.6, L3); e.rotation.x = -Math.PI/2; });
+  mesh(new THREE.PlaneGeometry(1.8, .6), new THREE.MeshLambertMaterial({map:textTex('★★★★★ 행복 스파', {w:384, h:128, bg:'#d4af37', fg:'#5a3a00', border:'#5a3a00', font:46})}), 3.6, 5.2, -7.27, L3, false);
+  BATH.lvG = [L1, L2, L3];
+  OBST.push([-3.4, -7.45, .2, -6.5]); // 폭포 자리
+  // ── 코코아 자판기 (대기실 오른쪽, 칸막이 앞) ──
+  const C = BATH.cocoa, vm = group(C.x, 0, C.z);
+  box(1.0, 1.95, .65, M('#5a3424'), 0, .975, 0, vm);
+  box(1.04, .12, .69, M('#3b2116'), 0, 1.98, 0, vm);
+  const panel = new THREE.MeshLambertMaterial({map:canvasTex(200, 360, (g, w, h) => {
+    g.fillStyle = '#7a4a32'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#ffe9c8'; g.fillRect(10, 10, w - 20, 70); g.fillStyle = '#5a3424'; g.font = FONT(34); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🍫 따끈 코코아', w/2, 46);
+    for(let i=0;i<3;i++){ const x = 38 + i*62; g.fillStyle = '#fff'; g.fillRect(x - 22, 100, 44, 56); g.fillStyle = '#8b5a2b'; g.fillRect(x - 18, 104, 36, 14); g.font = FONT(26); g.fillStyle = '#e85d5d'; g.fillText('HOT', x, 140); g.fillStyle = '#ffd94a'; g.fillRect(x - 14, 166, 28, 10); }
+    g.fillStyle = '#1d1d1d'; g.fillRect(24, 196, w - 48, 40); g.fillStyle = '#7fff9a'; g.font = FONT(26); g.fillText('1,500원', w/2, 217);
+    g.fillStyle = '#d4af37'; g.fillRect(w - 50, 250, 26, 40); g.fillStyle = '#1d1d1d'; g.fillRect(w - 42, 258, 10, 24);
+  }), emissive:'#ffffff', emissiveIntensity:.15});
+  (W.nightGlow = W.nightGlow || []).push(panel);
+  mesh(new THREE.PlaneGeometry(.9, 1.62), panel, 0, 1.12, .33, vm, false);
+  box(.5, .32, .1, M('#1d1d1d'), -.12, .32, .31, vm);
+  cyl(.07, .06, .14, M('#ffffff'), -.12, .27, .33, vm, 10); cyl(.06, .06, .02, M('#6b3f22'), -.12, .345, .33, vm, 10);
+  plane(.6, .24, sMat(textTex('코코아 자판기', {w:256, h:96, bg:'#ffe9c8', fg:'#5a3424', border:'#5a3424', font:40})), 0, 2.2, .2, vm).rotation.x = -.2;
+  OBST.push([C.x - .55, C.z - .38, C.x + .55, C.z + .38]);
+  BATH.steam = new THREE.Sprite(new THREE.SpriteMaterial({map:steamTex, transparent:true, opacity:.5, depthWrite:false}));
+  BATH.steam.scale.set(.35, .35, 1); BATH.steam.position.set(C.x - .12, .55, C.z + .36); scene.add(BATH.steam);
+}
+function updateBath(dt){
+  BATH.lanterns.forEach(l => l.g.rotation.z = Math.sin(T*1.5 + l.ph)*.08);
+  BATH.tvT += dt; if(BATH.tvT > 4){ BATH.tvT = 0; BATH.tvI = (BATH.tvI + 1) % BATH.tvTex.length; BATH.tvMat.map = BATH.tvTex[BATH.tvI]; BATH.tvMat.needsUpdate = true; }
+  const lv = (S && S.upg && S.upg.remodel) || 0;
+  if(lv !== BATH.lv){ BATH.lv = lv; BATH.lvG.forEach((g, i) => g.visible = lv > i); }
+  if(BATH.fall) BATH.fall.offset.y += dt*.9;
+  if(BATH.steam){ const k = (T*.6) % 1; BATH.steam.position.y = .5 + k*.5; BATH.steam.material.opacity = .45*(1 - k); }
+}
+function nearCocoa(){ return !PLAYER.inHome && !PLAYER.inStore && !PLAYER.inPrem && !DRIVE.active && !PLAYER.using && Math.hypot(PLAYER.x - BATH.cocoa.x, PLAYER.z - (BATH.cocoa.z + .75)) < 1.0; }
+function cocoaState(){ return S.cocoa || (S.cocoa = {stock:12, max:12}); }
+function useCocoa(){
+  const st = cocoaState();
+  if(S.role === 'customer'){
+    if(S.wallet < 1500) return toast('돈이 모자라요 💸 (1,500원)');
+    S.wallet -= 1500; gainFresh(6); updateHUD(); sfx.coin(); beep(520, .12, 'sine', .04);
+    pop(PLAYER.tag, '🍫 따끈따끈! 개운함 +6'); return;
+  }
+  if(st.stock <= 0) return toast('🍫 코코아가 다 팔렸어요! 내일 아침에 다시 채워져요');
+  st.stock--; beep(520, .12, 'sine', .04);
+  pop(PLAYER.tag, `🍫 사장님도 한 잔! (남은 코코아 ${st.stock}잔)`);
+}
+function cocoaSale(c){ // 손님이 나갈 때 자판기에서 코코아를 사 마셔요 (비·눈 오는 날 더 잘 팔림)
+  if(S.role !== 'owner') return '';
+  const st = cocoaState(), ch = (S.weather === 'rain' || S.weather === 'snow') ? .55 : .3;
+  if(st.stock <= 0 || Math.random() > ch) return '';
+  st.stock--; S.money += 1500; S.ds.revenue += 1500; S.total.revenue += 1500; S.ds.cocoa = (S.ds.cocoa||0) + 1;
+  return '🍫+1,500';
 }
 /* ======================= 건물마다 일·활동 (알바 미니게임·PC방·노래방·미용실·분식 등) ======================= */
 // PLACES: 건물 앞(또는 방 안)의 상호작용 지점. 가까이 가서 E → openPlace() 메뉴 (💼 알바 + 활동들)
@@ -1619,6 +1732,7 @@ function interactMain(){
   const sc = nearShowCar(); if(sc) return showCarModal(sc);
   const pl = nearPlace(); if(pl) return openPlace(pl);
   if(nearCar()) return enterCar();
+  if(nearCocoa()) return useCocoa();
   const {cust, fac} = nearestTargets();
   if(S.role==='customer'){ if(fac==='milk') return buyMilkMe(); if(fac && FAC[fac]) return useFacility(fac); return; }
   if(fac && (selected || !cust || fac==='shop' || fac==='milk')) return clickFacility(fac);
@@ -1684,6 +1798,7 @@ function updatePlayer(dt){
   else if(nearShowCar()){ const sc = nearShowCar(), cm = CAR_MODELS[sc.id]; h = `<b>E</b> ${cm.icon} ${cm.name} 살펴보기 · ${won(carPrice(sc.id))}원${S.myCar===sc.id ? ' (내 차)' : ''}`; }
   else if(nearPlace()){ const pp = nearPlace(); h = `<b>E</b> ${pp.cfg.icon} ${pp.name} · 💼 알바·활동`; }
   else if(nearCar()) h = '<b>E</b> 내 차 타기 🚗';
+  else if(nearCocoa()) h = S.role==='customer' ? '<b>E</b> 🍫 코코아 뽑아 마시기 · 1,500원' : `<b>E</b> 🍫 코코아 한 잔 (남은 ${cocoaState().stock}잔 · 손님이 나갈 때 사 마셔요)`;
   else if(S.role==='customer'){ if(fac==='milk') h = '<b>E</b> 바나나우유 사 먹기 · 2,500원'; else if(fac && FAC[fac]) h = `<b>E</b> ${FAC[fac].icon} ${FAC[fac].name} 이용하기 · ${won(FAC[fac].pay)}원`; }
   else if(cust && cust.yelling) h = `<b>E</b> ${cust.name} 진정시키기 💢`;
   else if(fac && (selected || !cust || fac==='shop' || fac==='milk')){
@@ -1734,9 +1849,9 @@ function setupPlayerInput(){
 }
 
 /* ======================= 아파트 (우리 집) ======================= */
-const HX = 370, APT = {x:24, z:2, door:{x:24, z:5.5}};
-const HOME_DOOR_IN = {x:366.8, z:2.7}, BED = [371.4,-3.0,373.6,0];
-const HOME_OBST = [BED, [366,-3.2,367.8,-2.0], [373.1,1.2,374.2,3.2]];
+const HX = 1000, APT = {x:24, z:2, door:{x:24, z:5.5}};
+const HOME_DOOR_IN = {x:996.8, z:2.7}, BED = [1001.4,-3.0,1003.6,0];
+const HOME_OBST = [BED, [996,-3.2,997.8,-2.0], [1003.1,1.2,1004.2,3.2]];
 const NIGHT_SKY = window.THREE ? new THREE.Color('#1a2342') : null;
 function buildApartment(){
   // 바깥 건물
@@ -3565,7 +3680,7 @@ function finishService(k, i){
   const f = S.fac[k], c = f.slots[i].c;
   f.slots[i] = null;
   f.clean = Math.max(0, f.clean - (k==='scrub'?12:8) * (S.buff.basin ? .5 : 1));
-  let pay = FAC[k].pay;
+  let pay = Math.round(FAC[k].pay * (1 + .1*(S.upg.remodel||0))); // 리모델링 단계마다 +10%
   if(c.type==='vip') pay *= 3;
   if(k==='scrub' && S.buff.scrubTowel) pay += 3000; // 천원샵 때수건
   if(c.type==='jinsang' && Math.random() < .3){ pay = Math.round(pay/2); setTimeout(() => pop(F[k].plate, '👿 반값으로 해줘!', true), 200); }
@@ -3592,6 +3707,8 @@ function leaveWalk(c, text){
 function depart(c, extra){
   if(S.buff.towel) c.mood = Math.min(100, c.mood + 10); // 천원샵 뽀송 수건
   if(S.fishTank) c.mood = Math.min(100, c.mood + 5); // 펫샵 대기실 어항
+  if(S.upg.remodel) c.mood = Math.min(100, c.mood + 4*S.upg.remodel); // 리모델링
+  const cocoa = cocoaSale(c);
   const stars = clamp(1 + c.mood/25, 1, 5);
   const wgt = c.type==='vip' ? .22 : .12;
   S.rep = S.rep*(1-wgt) + stars*wgt;
@@ -3603,6 +3720,7 @@ function depart(c, extra){
     text = c.type==='vip' ? '👑 최고야! 팁 +15,000' : c.type==='jinsang' ? '👿→😊 의외로 통 큰 팁 +10,000' : '💕 팁 +2,000'; }
   else if(c.mood < 45) text = '😒 ' + text;
   if(extra) text = extra + ' ' + text;
+  if(cocoa) text += ' ' + cocoa;
   leaveWalk(c, text);
   updateHUD();
 }
@@ -3821,6 +3939,7 @@ function loop(ts){
     updateTraffic(dt);
     updateSeoul(dt);
     updateDealer(dt);
+    updateBath(dt);
   }
   updateCamera();
   followSun();
@@ -3834,6 +3953,7 @@ function startDay(){
   S.phase = 'day'; S.time = 0; S.spawnT = 1.2;
   S.weather = S.nextWeather; S.nextWeather = rollWeather(); S.umbrella = false;
   S.milk.stock = S.role==='customer' ? 99 : S.milk.max;
+  S.cocoa = {stock:12, max:12}; // 코코아 자판기 매일 아침 채움
   S.ds = {visitors:0, served:0, services:0, angry:0, revenue:0, cost:0, milk:0, moodSum:0, startMoney:S.money};
   for(const k in FAC){ const f = S.fac[k]; f.clean = 100; if(FAC[k].range) f.temp = (FAC[k].range[0]+FAC[k].range[1])/2; }
   hideModal(); updateHUD(); sfx.bell();

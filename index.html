@@ -629,7 +629,6 @@ function buildOutside(){
   road.rotation.x = -Math.PI/2; road.receiveShadow = true;
   for(let i=0;i<7;i++){ const s = plane(.5, 3.0, M('#f4f4f4'), -1.8+i*.6, 0, 13.6); s.rotation.x = -Math.PI/2; }
   box(80, .15, .25, M('#9a9a9a'), 0, .06, 17.2);
-  car(-6, 12.1, '#e05a47'); car(8, 15.2, '#4a90d9', Math.PI);
   // 목욕탕 외벽, 간판, 굴뚝
   const brick = canvasTex(128,128,(g,w,h)=>{ g.fillStyle='#b5654a'; g.fillRect(0,0,w,h); g.fillStyle='#e8d8c8'; for(let r=0;r<8;r++){ g.fillRect(0,r*16,w,2); for(let c=0;c<4;c++) g.fillRect(((c*32)+(r%2)*16)%w, r*16, 2, 16); } }, 8, 2);
   box(20.9, 4.2, .35, sMat(brick), 0, 2.1, -7.65);
@@ -771,12 +770,13 @@ function nearestTargets(){
   for(const k in ZONES){ const d = rectDist(P.x, P.z, ZONES[k]); if(d < fd){ fd = d; fac = k; } }
   return {cust, fac};
 }
-const DRIVE = {active:false, car:null, x:3, z:12.2, h:0, speed:0, wheels:[]};
-const CAR_BLOCK = [[-10.2,-7.4,10.2,7.4], [-18.3,2.3,-11.7,7.7], [-7.2,11.5,-4.8,12.7], [6.8,14.6,9.2,15.8]]; // 차는 목욕탕·편의점 안으로 못 들어가요
+const DRIVE = {active:false, car:null, x:35.8, z:2.2, h:Math.PI/2, speed:0, wheels:[]};
+const CAR_BLOCK = [[-10.2,-7.4,10.2,7.4], [-18.3,2.3,-11.7,7.7]]; // 차는 목욕탕·편의점 안으로 못 들어가요
 function buildMyCar(){
   const g = car(DRIVE.x, DRIVE.z, '#2fa36b');
   plane(.9,.3,sMat(textTex('내 차',{w:256,h:96,bg:'#fffaf2',font:60})), 0, 1.25, 0, g).rotation.x = -Math.PI/2;
   box(.06,.12,.3,M('#ff4a3a'),-1.1,.55,.3,g); box(.06,.12,.3,M('#ff4a3a'),-1.1,.55,-.3,g);
+  g.rotation.y = DRIVE.h; // 처음엔 아파트 주차장 2번 칸에 세워져 있어요
   DRIVE.car = g;
 }
 function nearCar(){ return Math.hypot(PLAYER.x - DRIVE.x, PLAYER.z - DRIVE.z) < 2.3; }
@@ -1591,6 +1591,489 @@ function updatePets(dt){
     (W.petFish||[]).forEach(o => { o.f.position.z = o.z0 + Math.sin(T*o.sp + o.ph)*.55; o.f.rotation.x = Math.cos(T*o.sp + o.ph) > 0 ? Math.PI/2 : -Math.PI/2; });
   }
   (W.petDisplay||[]).forEach(o => animPet(o.pp, false, dt, o.ph));
+}
+
+/* ======================= 동네 교통 (차·버스·신호등) ======================= */
+/* ======================= 동네 교통 (자동차·신호등·마을버스) ======================= */
+// 차선 규칙: 0번 차선 z=12.1 은 −x 방향(인도 쪽, 오른쪽 통행), 1번 차선 z=15.2 는 +x 방향.
+// 진행 좌표 p: 실제 x = dir * p (p가 커질수록 앞으로 감). 두 차선 모두 정지선은 p = −2.6.
+const TRAFFIC = {
+  t: 0, vehicles: [], geo: {}, light: '', pedFlash: -1, cd: -1,
+  lanes: [{z: 12.1, dir: -1, sgn: 1}, {z: 15.2, dir: 1, sgn: -1}],
+  spawnT: [1.5, 2.5], pcStill: 0, bumpT: 0, chimeT: 0,
+  STOP_P: -2.6, EDGE: 47, CYCLE: 22, // 초록 12초 · 노랑 2초 · 빨강 8초
+  BUS_X: 15.3, SHELTER: {x0: 13.6, x1: 17.0}
+};
+const TRF_COLORS = ['#e05a47','#4a90d9','#f4f4f4','#3b3f45','#f2c94c','#8e6fd1','#5fbf8f','#c0c6cc','#e88fb0','#2d5b8a','#d9823b'];
+
+function trfGeo(key, make){ return TRAFFIC.geo[key] || (TRAFFIC.geo[key] = make()); }
+// 바퀴: 피벗 그룹을 돌리면 굴러가요 (휠캡 줄무늬가 돌아가는 게 보임)
+function trfWheel(parent, x, z, r, w){
+  const pv = group(x, r, z, parent);
+  const tire = mesh(trfGeo('t'+r+w, () => new THREE.CylinderGeometry(r, r, w, 14)), M('#232323'), 0,0,0, pv);
+  tire.rotation.x = Math.PI/2;
+  mesh(trfGeo('h'+r+w, () => new THREE.BoxGeometry(r*1.3, r*.28, w+.02)), M('#c9ced3'), 0,0,0, pv, false);
+  return pv;
+}
+function trfPlate(parent, x, y, flip){
+  const num = Math.floor(rnd(10,99)) + pick(['가','나','다','라','마','바','사']) + ' ' + Math.floor(rnd(1000,9999));
+  const p = plane(.34, .1, sMat(textTex(num, {w:256, h:76, bg:'#f4f6f8', fg:'#1f2a33', border:'#1f2a33', font:40})), x, y, 0, parent);
+  p.rotation.y = flip ? -Math.PI/2 : Math.PI/2;
+  return p;
+}
+// 밤에 땅에 비치는 전조등 불빛 (점광원 대신 가산 합성 평면)
+function trfGlow(parent, len, s=1){
+  const g = mesh(trfGeo('glow', () => new THREE.PlaneGeometry(3, 1.5)), TRAFFIC.glowMat, len/2 + 1.4*s, .03, 0, parent, false);
+  g.rotation.x = -Math.PI/2; g.scale.set(s, s, 1);
+  return g;
+}
+function trfBase(kind, len, wid){
+  const g = group(0, 0, -200); g.visible = false;
+  const tail = new THREE.MeshLambertMaterial({color:'#ff4a3a', emissive:'#ff2010', emissiveIntensity:.25});
+  return {kind, g, len, wid, wheels:[], tail, body:[], door:null, doorX:0, active:false,
+          lane:0, dir:-1, laneZ:12.1, sgn:1, p:0, v:0, vmax:7, acc:3.5, off:0, swerve:false,
+          dwell:0, served:false, waitT:0, honkT:0, wait:0, ry:0};
+}
+
+// 승용차
+function trfSedan(color){
+  const V = trfBase('sedan', 2.3, 1.08), g = V.g;
+  V.body.push(box(2.3, .5, 1.08, M(color), 0, .52, 0, g));
+  V.body.push(box(1.25, .46, .98, M(color), -.12, 1.0, 0, g));
+  box(1.27, .32, 1.0, M('#bfe3f2'), -.12, 1.0, 0, g);
+  box(.12, .18, 1.12, M('#3a3f45'), 1.15, .34, 0, g); box(.12, .18, 1.12, M('#3a3f45'), -1.15, .34, 0, g);
+  box(.05, .12, .26, TRAFFIC.headMat, 1.16, .6, .33, g); box(.05, .12, .26, TRAFFIC.headMat, 1.16, .6, -.33, g);
+  box(.05, .12, .26, V.tail, -1.16, .6, .33, g); box(.05, .12, .26, V.tail, -1.16, .6, -.33, g);
+  trfPlate(g, -1.22, .36, true);
+  [[.72,.5],[.72,-.5],[-.72,.5],[-.72,-.5]].forEach(([x,z]) => V.wheels.push(trfWheel(g, x, z, .23, .17)));
+  trfGlow(g, 2.3);
+  return V;
+}
+// 개인택시: 지붕에 노란 "개인택시" 표시등
+function trfTaxi(){
+  const V = trfSedan(pick(['#f2f0e6','#f2a541'])); V.kind = 'taxi';
+  const side = new THREE.MeshLambertMaterial({map:TRAFFIC.taxiTex, emissive:'#fff2a0', emissiveMap:TRAFFIC.taxiTex, emissiveIntensity:.1});
+  const y = M('#ffd23a');
+  const sign = new THREE.Mesh(trfGeo('taxi', () => new THREE.BoxGeometry(.56, .2, .26)), [y, y, y, y, side, side]);
+  sign.position.set(-.12, 1.33, 0); V.g.add(sign); V.taxiMat = side;
+  return V;
+}
+// 1톤 용달 트럭 (파란색)
+function trfTruck(){
+  const V = trfBase('truck', 3.4, 1.2), g = V.g, blue = M('#2f6fd6');
+  V.vmax = rnd(5, 7);
+  box(3.4, .22, 1.1, M('#2b2f33'), 0, .42, 0, g);
+  box(1.0, 1.0, 1.2, blue, 1.18, .95, 0, g);
+  box(.06, .42, 1.06, M('#bfe3f2'), 1.69, 1.2, 0, g);
+  box(1.02, .32, 1.22, M('#bfe3f2'), 1.18, 1.22, 0, g).scale.set(.9, 1, 1);
+  box(.14, .2, 1.22, M('#3a3f45'), 1.68, .45, 0, g);
+  box(2.25, .08, 1.2, M('#9aa6b0'), -.56, .57, 0, g);
+  const rail = M('#c9d3dc');
+  box(2.25, .34, .05, rail, -.56, .78, .58, g); box(2.25, .34, .05, rail, -.56, .78, -.58, g);
+  box(.05, .34, 1.2, rail, -1.66, .78, 0, g);
+  const lbl = sMat(textTex('용달', {w:256, h:128, bg:'#ffffff', fg:'#2f6fd6', border:'#2f6fd6', font:70}));
+  plane(.5, .25, lbl, 1.15, .82, .605, g);
+  plane(.5, .25, lbl, 1.15, .82, -.605, g).rotation.y = Math.PI;
+  // 짐칸 상자 몇 개
+  const nb = 1 + Math.floor(Math.random()*2);
+  for(let i=0; i<nb; i++) box(.55, .45, .5, M(pick(['#c9925a','#b8834d','#e2c08d'])), -.2 - i*.75, .84, rnd(-.25,.25), g).rotation.y = rnd(-.2,.2);
+  box(.05, .12, .24, TRAFFIC.headMat, 1.7, .62, .4, g); box(.05, .12, .24, TRAFFIC.headMat, 1.7, .62, -.4, g);
+  box(.05, .12, .2, V.tail, -1.7, .5, .45, g); box(.05, .12, .2, V.tail, -1.7, .5, -.45, g);
+  trfPlate(g, -1.71, .38, true);
+  [[1.1,.52],[1.1,-.52],[-1.0,.52],[-1.0,-.52]].forEach(([x,z]) => V.wheels.push(trfWheel(g, x, z, .25, .18)));
+  trfGlow(g, 3.4);
+  return V;
+}
+// 초록 마을버스 "행복 01"
+function trfBus(){
+  const V = trfBase('bus', 7.6, 2.0), g = V.g, green = M('#36a852');
+  V.vmax = 6.2; V.acc = 2.2;
+  box(7.6, 1.0, 2.0, green, 0, .85, 0, g);
+  box(7.62, .14, 2.02, M('#f2c94c'), 0, 1.12, 0, g);
+  const winA = new THREE.MeshLambertMaterial({map:TRAFFIC.busWinTex, emissive:'#ffe9a8', emissiveMap:TRAFFIC.busWinMask, emissiveIntensity:0});
+  const front = sMat(TRAFFIC.busFrontTex), back = M('#2f9548'), roofC = M('#f0f4ef');
+  const band = new THREE.Mesh(new THREE.BoxGeometry(7.6, .95, 2.0), [front, back, roofC, roofC, winA, winA]);
+  band.position.set(0, 1.82, 0); band.castShadow = true; g.add(band); V.winMat = winA;
+  box(7.5, .14, 1.94, roofC, 0, 2.36, 0, g);
+  box(1.6, .24, 1.2, M('#d9e0e4'), -1.2, 2.55, 0, g);
+  box(.16, .26, 2.04, M('#3a3f45'), 3.8, .45, 0, g); box(.16, .26, 2.04, M('#3a3f45'), -3.8, .45, 0, g);
+  // 행선지 전광판
+  plane(1.6, .34, new THREE.MeshBasicMaterial({map:TRAFFIC.busSignTex}), 3.81, 2.14, 0, g).rotation.y = Math.PI/2;
+  plane(1.0, .26, new THREE.MeshBasicMaterial({map:TRAFFIC.busSignTex}), -3.81, 2.14, 0, g).rotation.y = -Math.PI/2;
+  const side = sMat(textTex('행복 01  마을버스', {w:512, h:96, bg:'#36a852', fg:'#ffffff', border:false, font:58}));
+  plane(2.4, .45, side, -1.0, .78, 1.011, g);
+  plane(2.4, .45, side, -1.0, .78, -1.011, g).rotation.y = Math.PI;
+  // 앞문 (인도 쪽 = 로컬 +z). 정류장에서 열려요
+  V.doorX = 2.95;
+  V.door = box(.95, 1.95, .05, M('#2c4a5a'), V.doorX, 1.32, 1.02, g);
+  box(.04, .8, .5, M('#2b2f33'), 3.95, 1.95, 1.18, g); box(.04, .8, .5, M('#2b2f33'), 3.95, 1.95, -1.18, g);
+  box(.05, .16, .34, TRAFFIC.headMat, 3.81, .62, .7, g); box(.05, .16, .34, TRAFFIC.headMat, 3.81, .62, -.7, g);
+  box(.05, .18, .3, V.tail, -3.81, .7, .75, g); box(.05, .18, .3, V.tail, -3.81, .7, -.75, g);
+  [[2.6,.9],[2.6,-.9],[-2.5,.9],[-2.5,-.9]].forEach(([x,z]) => V.wheels.push(trfWheel(g, x, z, .45, .3)));
+  trfGlow(g, 7.6, 1.4);
+  return V;
+}
+
+// 신호등 기둥 (차량용 가로형 신호 + 보행자 신호)
+function trfSignal(x, z, armDir, faceX, pedFaceZ){
+  const T_ = TRAFFIC, gray = M('#59646d'), dark = M('#24292e');
+  cyl(.07, .09, 4.4, gray, x, 2.2, z, scene, 10);
+  box(.1, .1, 2.4, gray, x, 4.25, z + armDir*1.15);
+  const hz = z + armDir*2.05;
+  box(.28, .36, 1.08, dark, x, 4.0, hz);
+  box(.36, .04, 1.16, dark, x + faceX*.06, 4.2, hz);
+  const lamps = [];
+  [1, 0, -1].forEach((k, i) => {
+    const l = mesh(trfGeo('lamp', () => new THREE.CylinderGeometry(.12, .12, .05, 14)), T_.lampOff[i], x + faceX*.15, 4.0, hz + k*faceX*.34, scene, false);
+    l.rotation.z = Math.PI/2; lamps.push(l);
+  });
+  T_.carLamps.push(lamps);
+  // 보행자 신호
+  const pz = z + pedFaceZ*.12;
+  box(.42, .86, .22, dark, x, 2.55, z);
+  const rot = pedFaceZ > 0 ? 0 : Math.PI;
+  const red = plane(.32, .36, T_.pedMat.redOff, x, 2.76, pz, scene); red.rotation.y = rot;
+  const grn = plane(.32, .36, T_.pedMat.greenOff, x, 2.34, pz, scene); grn.rotation.y = rot;
+  const cd = plane(.26, .26, T_.cdMat, x - .36*pedFaceZ, 2.34, pz, scene); cd.rotation.y = rot;
+  box(.3, .3, .2, dark, x - .36*pedFaceZ, 2.34, z);
+  box(.12, .16, .1, M('#ffd23a'), x, 1.1, z + pedFaceZ*.09); // 보행자 버튼
+  T_.pedHeads.push({red, grn});
+}
+
+// 버스 정류장 (x 13.6~17.0, 인도 z 8.6~10)
+function trfShelter(){
+  const S_ = TRAFFIC.SHELTER, cx = (S_.x0 + S_.x1)/2, frame = M('#3d4a52'), green = M('#2f9e55');
+  const glass = new THREE.MeshLambertMaterial({color:'#cfeaf5', transparent:true, opacity:.35, depthWrite:false});
+  box(.1, 2.5, .1, frame, S_.x0, 1.25, 8.65); box(.1, 2.5, .1, frame, S_.x1, 1.25, 8.65);
+  const back = box(3.3, 1.7, .04, glass, cx, 1.3, 8.65); back.castShadow = false;
+  box(3.4, .07, .08, frame, cx, .42, 8.65); box(3.4, .07, .08, frame, cx, 2.18, 8.65);
+  const sidePanel = box(.04, 1.7, .9, glass, S_.x1, 1.3, 9.12); sidePanel.castShadow = false;
+  box(.06, .07, .95, frame, S_.x1, 2.18, 9.12);
+  // 노선도
+  const mapTex = canvasTex(256, 320, (c, w, h) => {
+    c.fillStyle = '#ffffff'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#2f9e55'; c.fillRect(0, 0, w, 62);
+    c.fillStyle = '#ffffff'; c.font = FONT(30); c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('행복동 마을버스', w/2, 22); c.font = FONT(20); c.fillText('01번 노선도', w/2, 48);
+    const stops = ['행복역', '동네 시장', '행복 편의점', '행복탕 앞', '행복아파트'];
+    c.strokeStyle = '#2f9e55'; c.lineWidth = 8; c.beginPath(); c.moveTo(60, 90); c.lineTo(60, 290); c.stroke();
+    stops.forEach((s, i) => {
+      const y = 90 + i*50, here = s === '행복탕 앞';
+      c.fillStyle = here ? '#e0453a' : '#ffffff'; c.strokeStyle = here ? '#e0453a' : '#2f9e55'; c.lineWidth = 5;
+      c.beginPath(); c.arc(60, y, here ? 13 : 9, 0, Math.PI*2); c.fill(); c.stroke();
+      c.fillStyle = here ? '#e0453a' : '#24323a'; c.font = FONT(here ? 28 : 24); c.textAlign = 'left';
+      c.fillText(s + (here ? ' ◀ 여기' : ''), 86, y);
+    });
+  });
+  const mapMat = sMat(mapTex);
+  plane(.8, 1.0, mapMat, S_.x1 - .03, 1.35, 9.12).rotation.y = -Math.PI/2;
+  plane(.8, 1.0, mapMat, S_.x1 + .03, 1.35, 9.12).rotation.y = Math.PI/2;
+  // 지붕 (뒤 기둥에서 앞으로 튀어나온 외팔보 구조라 앞쪽은 지나다닐 수 있어요)
+  box(3.8, .1, 1.65, green, cx, 2.55, 9.22);
+  box(3.8, .14, .06, M('#f2c94c'), cx, 2.55, 10.06);
+  TRAFFIC.shelterLight = new THREE.MeshLambertMaterial({color:'#fff6d8', emissive:'#ffe9a8', emissiveIntensity:.1});
+  box(3.1, .04, .14, TRAFFIC.shelterLight, cx, 2.48, 9.3, scene);
+  [S_.x0, S_.x1].forEach(x => { const b = box(.06, .06, 1.25, frame, x, 2.3, 9.15); b.rotation.x = .38; });
+  const sign = sMat(textTex(['행복탕 앞', '행복동 마을버스 정류장'], {w:512, h:170, bg:'#2f9e55', fg:'#ffffff', border:'#ffffff', font:46}));
+  box(2.5, .8, .06, M('#24292e'), cx, 3.0, 9.98);
+  plane(2.4, .72, sign, cx, 3.0, 10.02);
+  plane(2.4, .72, sign, cx, 3.0, 9.94).rotation.y = Math.PI;
+  // 의자
+  const wood = M('#c58b4e');
+  box(2.2, .07, .42, wood, cx - .2, .46, 8.93); box(2.2, .32, .05, wood, cx - .2, .72, 8.72);
+  box(.06, .44, .36, frame, cx - 1.15, .22, 8.93); box(.06, .44, .36, frame, cx + .75, .22, 8.93);
+  // 정류장 표지판 기둥
+  cyl(.04, .04, 2.6, M('#8a949c'), 13.3, 1.3, 9.7, scene, 8);
+  const ps = sMat(textTex(['🚌 버스', '정류장'], {w:256, h:256, bg:'#ffffff', fg:'#2f9e55', border:'#2f9e55', font:60}));
+  box(.05, .6, .6, M('#2f9e55'), 13.3, 2.4, 9.7);
+  plane(.56, .56, ps, 13.33, 2.4, 9.7).rotation.y = Math.PI/2;
+  plane(.56, .56, ps, 13.27, 2.4, 9.7).rotation.y = -Math.PI/2;
+  // 단단한 부분만 장애물 (뒤 유리·의자·옆 유리·표지판 기둥). 뒤쪽 인도 z 7.4~8.55와 앞쪽은 비워 둠
+  OBST.push([S_.x0 - .1, 8.55, S_.x1 + .1, 8.8], [cx - 1.35, 8.8, cx + .95, 9.15], [S_.x1 - .06, 8.55, S_.x1 + .08, 9.6], [13.18, 9.58, 13.42, 9.82]);
+}
+
+function buildTraffic(){
+  const T_ = TRAFFIC;
+  T_.headMat = new THREE.MeshLambertMaterial({color:'#fff6c8', emissive:'#fff1b0', emissiveIntensity:.15});
+  const glowTex = canvasTex(128, 64, (c, w, h) => {
+    const r = c.createRadialGradient(w*.2, h/2, 2, w*.35, h/2, w*.6);
+    r.addColorStop(0, 'rgba(255,240,190,.9)'); r.addColorStop(1, 'rgba(255,240,190,0)');
+    c.fillStyle = r; c.fillRect(0, 0, w, h);
+  });
+  glowTex.wrapS = glowTex.wrapT = THREE.ClampToEdgeWrapping;
+  T_.glowMat = new THREE.MeshBasicMaterial({map:glowTex, transparent:true, opacity:0, depthWrite:false, blending:THREE.AdditiveBlending});
+  T_.taxiTex = textTex('개인택시', {w:256, h:96, bg:'#ffd23a', fg:'#3a2a10', border:false, font:62});
+  // 마을버스 창문 텍스처 + 밤에 창만 빛나게 할 마스크
+  const winDraw = (frameC, glassC, hi) => (c, w, h) => {
+    c.fillStyle = frameC; c.fillRect(0, 0, w, h);
+    for(let i=0; i<7; i++){
+      const x = 14 + i*71;
+      c.fillStyle = glassC; c.fillRect(x, 14, 60, h - 34);
+      if(hi){ c.fillStyle = 'rgba(255,255,255,.18)'; c.beginPath(); c.moveTo(x+6, 18); c.lineTo(x+26, 18); c.lineTo(x+8, h-26); c.lineTo(x+6, h-26); c.fill(); }
+    }
+  };
+  T_.busWinTex = canvasTex(512, 128, winDraw('#36a852', '#2c4a5a', true));
+  T_.busWinMask = canvasTex(512, 128, winDraw('#000000', '#ffffff', false));
+  T_.busFrontTex = canvasTex(256, 128, (c, w, h) => {
+    c.fillStyle = '#36a852'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#2c4a5a'; c.fillRect(10, 30, w - 20, h - 36);
+    c.fillStyle = 'rgba(255,255,255,.15)'; c.fillRect(20, 36, 50, h - 50);
+  });
+  T_.busSignTex = canvasTex(256, 56, (c, w, h) => {
+    c.fillStyle = '#141414'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#ffa733'; c.font = FONT(38); c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('행복 01 · 행복탕', w/2, h/2 + 2);
+  });
+  // 신호등 재질
+  T_.lampOn = ['#ff3b30', '#ffc53d', '#36e07a'].map(c => new THREE.MeshBasicMaterial({color:c}));
+  T_.lampOff = ['#4a1c1a', '#4a3d16', '#163f27'].map(c => new THREE.MeshLambertMaterial({color:c}));
+  const pedTex = (green, lit) => canvasTex(64, 72, (c, w, h) => {
+    c.fillStyle = '#101214'; c.fillRect(0, 0, w, h);
+    c.fillStyle = lit ? (green ? '#3dff8a' : '#ff3b30') : (green ? '#1d3528' : '#3a1d1d');
+    c.beginPath(); c.arc(32, 14, 7, 0, Math.PI*2); c.fill();
+    if(green){ // 걷는 사람
+      c.fillRect(27, 23, 10, 20);
+      c.save(); c.translate(30, 42); c.rotate(.45); c.fillRect(-3, 0, 7, 22); c.restore();
+      c.save(); c.translate(34, 42); c.rotate(-.45); c.fillRect(-3, 0, 7, 22); c.restore();
+      c.save(); c.translate(28, 25); c.rotate(.6); c.fillRect(-3, 0, 6, 16); c.restore();
+      c.save(); c.translate(36, 25); c.rotate(-.6); c.fillRect(-3, 0, 6, 16); c.restore();
+    } else { // 서 있는 사람
+      c.fillRect(25, 23, 14, 22); c.fillRect(20, 24, 5, 18); c.fillRect(39, 24, 5, 18);
+      c.fillRect(26, 45, 5, 22); c.fillRect(33, 45, 5, 22);
+    }
+  });
+  T_.pedMat = {
+    redOn: new THREE.MeshBasicMaterial({map:pedTex(false, true)}), redOff: new THREE.MeshBasicMaterial({map:pedTex(false, false)}),
+    greenOn: new THREE.MeshBasicMaterial({map:pedTex(true, true)}), greenOff: new THREE.MeshBasicMaterial({map:pedTex(true, false)})
+  };
+  T_.cdCanvas = document.createElement('canvas'); T_.cdCanvas.width = T_.cdCanvas.height = 64;
+  T_.cdTex = new THREE.CanvasTexture(T_.cdCanvas);
+  T_.cdMat = new THREE.MeshBasicMaterial({map:T_.cdTex});
+  trfDrawCount(0);
+  T_.carLamps = []; T_.pedHeads = [];
+  // 신호등: 인도 쪽 기둥은 0번 차선(+x에서 오는 차)을, 건너편 기둥은 1번 차선을 바라봄
+  trfSignal(-2.6, 9.75, 1, 1, 1);
+  trfSignal(2.6, 17.45, -1, -1, -1);
+  OBST.push([-2.75, 9.6, -2.45, 9.9]);
+  // 정지선
+  const white = M('#f4f4f4');
+  const s1 = plane(.3, 3.3, white, 2.75, .003, 11.85); s1.rotation.x = -Math.PI/2;
+  const s2 = plane(.3, 3.3, white, -2.75, .003, 15.35); s2.rotation.x = -Math.PI/2;
+  // 도로 끝 연장 (x ±40~49): 차가 맨땅 위로 나타나지 않게
+  const roadTex = canvasTex(256, 64, (c, w, h) => { c.fillStyle = '#4a4f55'; c.fillRect(0, 0, w, h); c.fillStyle = '#f2c94c'; c.fillRect(0, h/2 - 2, w*.55, 4); }, 2.25, 1);
+  [-44.5, 44.5].forEach(x => {
+    const r = plane(9, 7, sMat(roadTex), x, -.005, 13.6); r.rotation.x = -Math.PI/2; r.receiveShadow = true;
+    box(9, .15, .25, M('#9a9a9a'), x, .06, 10.0); box(9, .15, .25, M('#9a9a9a'), x, .06, 17.2);
+  });
+  trfShelter();
+  // 차량 풀: 승용차 7 · 택시 2 · 용달 2 · 마을버스 1
+  for(let i=0; i<7; i++) T_.vehicles.push(trfSedan(pick(TRF_COLORS)));
+  T_.vehicles.push(trfTaxi(), trfTaxi(), trfTruck(), trfTruck());
+  T_.bus = trfBus(); T_.vehicles.push(T_.bus);
+  // 처음 배치 (내 차 (3, 12.2) 근처는 피함)
+  const init = [[0, -38], [0, 12], [0, 30], [1, -25], [1, 6], [1, 27]];
+  const pool = T_.vehicles.filter(v => v.kind !== 'bus');
+  init.forEach(([ln, p], i) => trfActivate(pool[i === 4 ? 7 : i], ln, p));
+  trfActivate(T_.bus, 0, -24);
+}
+
+function trfDrawCount(n){
+  const c = TRAFFIC.cdCanvas.getContext('2d');
+  c.fillStyle = '#101214'; c.fillRect(0, 0, 64, 64);
+  if(n > 0){ c.fillStyle = '#3dff8a'; c.font = FONT(44); c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(n), 32, 35); }
+  TRAFFIC.cdTex.needsUpdate = true;
+}
+
+function trfActivate(V, lane, p){
+  const L = TRAFFIC.lanes[lane];
+  V.lane = lane; V.dir = L.dir; V.laneZ = L.z; V.sgn = L.sgn; V.p = p; V.off = 0; V.swerve = false;
+  V.dwell = 0; V.served = false; V.waitT = 0; V.active = true; V.g.visible = true;
+  if(V.kind === 'sedan'){ const c = M(pick(TRF_COLORS)); V.body.forEach(m => m.material = c); }
+  if(V.kind === 'sedan' || V.kind === 'taxi') V.vmax = rnd(5.5, 8.5);
+  else if(V.kind === 'truck') V.vmax = rnd(5, 7);
+  V.v = V.vmax * .8;
+  V.ry = V.dir > 0 ? 0 : Math.PI;
+  V.g.position.set(V.dir*p, 0, V.laneZ); V.g.rotation.y = V.ry;
+}
+
+function trfOutdoor(){ return typeof PLAYER !== 'undefined' && !PLAYER.inHome && !PLAYER.inStore && !PLAYER.inPrem && !PLAYER.inDollar; }
+
+function trfTrySpawn(lane){
+  const T_ = TRAFFIC, L = T_.lanes[lane], entry = -T_.EDGE;
+  const hidden = T_.vehicles.filter(v => !v.active && v.kind !== 'bus');
+  if(!hidden.length) return false;
+  const r = Math.random(), want = r < .18 ? 'taxi' : r < .32 ? 'truck' : 'sedan';
+  const V = hidden.find(v => v.kind === want) || pick(hidden);
+  if(!trfEntryClear(L, V.len)) return false;
+  trfActivate(V, lane, entry);
+  return true;
+}
+function trfEntryClear(L, len){
+  const T_ = TRAFFIC, entry = -T_.EDGE;
+  for(const B of T_.vehicles){
+    if(!B.active || B.dir !== L.dir) continue;
+    if(B.p - B.len/2 < entry + len/2 + 3) return false;
+  }
+  if(Math.abs(DRIVE.z - L.z) < 2 && Math.abs(L.dir*DRIVE.x - entry) < 6) return false;
+  if(trfOutdoor() && !DRIVE.active && Math.abs(PLAYER.z - L.z) < 2 && Math.abs(L.dir*PLAYER.x - entry) < 5) return false;
+  return true;
+}
+
+function updateTraffic(dt){
+  const T_ = TRAFFIC; if(!T_.bus || dt <= 0) return;
+  T_.t += dt;
+  const night = W.night || 0;
+  // ---- 신호 주기 ----
+  const c = T_.t % T_.CYCLE;
+  const light = c < 12 ? 'green' : c < 14 ? 'yellow' : 'red';
+  if(light !== T_.light){
+    T_.light = light;
+    const idx = light === 'red' ? 0 : light === 'yellow' ? 1 : 2;
+    T_.carLamps.forEach(ls => ls.forEach((l, i) => l.material = i === idx ? T_.lampOn[i] : T_.lampOff[i]));
+    if(light === 'red' && trfOutdoor() && Math.abs(PLAYER.x) < 9 && PLAYER.z > 6 && T_.chimeT <= 0){ beep(1180, .07, 'sine', .02); setTimeout(() => beep(1180, .07, 'sine', .02), 160); T_.chimeT = 5; }
+  }
+  T_.chimeT -= dt;
+  const pedGreen = light === 'red', remain = Math.ceil(T_.CYCLE - c);
+  const flashOn = !pedGreen || remain > 3 || Math.floor(T_.t*4) % 2 === 0;
+  const pf = (pedGreen ? 1 : 0) + (flashOn ? 2 : 0);
+  if(pf !== T_.pedFlash){
+    T_.pedFlash = pf;
+    T_.pedHeads.forEach(h => { h.red.material = pedGreen ? T_.pedMat.redOff : T_.pedMat.redOn; h.grn.material = pedGreen && flashOn ? T_.pedMat.greenOn : T_.pedMat.greenOff; });
+  }
+  const cdN = pedGreen ? remain : 0;
+  if(cdN !== T_.cd){ T_.cd = cdN; trfDrawCount(cdN); }
+  // ---- 밤 불빛 ----
+  T_.headMat.emissiveIntensity = .15 + night*1.2;
+  T_.glowMat.opacity = night*.5; T_.glowMat.visible = night > .05;
+  if(T_.shelterLight) T_.shelterLight.emissiveIntensity = .1 + night*1.1;
+  if(T_.bus.winMat) T_.bus.winMat.emissiveIntensity = night*.7;
+  T_.vehicles.forEach(v => { if(v.taxiMat) v.taxiMat.emissiveIntensity = .1 + night*.8; });
+  // ---- 날씨·밤에 따라 차 수 / 속도 ----
+  const wx = S.weather === 'snow' ? .62 : S.weather === 'rain' ? .8 : 1;
+  const target = Math.round(7 - night*3.5 - (wx < 1 ? 1 : 0));
+  // 내 차가 멈춰 있는 시간 (멈춘 차는 옆 차선으로 비켜 지나감)
+  T_.pcStill = (!DRIVE.active || Math.abs(DRIVE.speed) < .4) ? T_.pcStill + dt : 0;
+  // ---- 새 차 등장 ----
+  const nCars = T_.vehicles.filter(v => v.active && v.kind !== 'bus').length;
+  for(let ln=0; ln<2; ln++){
+    T_.spawnT[ln] -= dt;
+    if(T_.spawnT[ln] <= 0){
+      T_.spawnT[ln] = rnd(1.2, 3.5) * (1 + night*1.5);
+      if(nCars < target) trfTrySpawn(ln);
+    }
+  }
+  const B = T_.bus;
+  if(!B.active){ B.wait -= dt; if(B.wait <= 0 && trfEntryClear(T_.lanes[0], B.len)) trfActivate(B, 0, -T_.EDGE - 2); }
+  // ---- 차 움직이기 ----
+  const out = trfOutdoor(), walker = out && !DRIVE.active && PLAYER.z > 9.8 && PLAYER.z < 17.4;
+  for(const A of T_.vehicles){
+    if(!A.active) continue;
+    const fA = A.p + A.len/2, bA = A.p - A.len/2, zA = A.g.position.z;
+    let dmin = 1e9, pcLim = null, waitingWalker = false;
+    // 다른 차들
+    for(const O of T_.vehicles){
+      if(O === A || !O.active) continue;
+      const zO = O.g.position.z;
+      if(Math.abs(zO - zA) > (A.wid + O.wid)/2 + .35) continue;
+      if(O.dir === A.dir){
+        if(O.p <= A.p) continue;
+        dmin = Math.min(dmin, O.p - O.len/2 - (1.4 + A.v*.5) - fA);
+      } else {
+        if(A.off > .3) continue; // 추월 중인 차는 마주 오는 차가 기다려 줌
+        const pO = A.dir * O.g.position.x;
+        if(pO + O.len/2 <= bA) continue;
+        dmin = Math.min(dmin, pO - O.len/2 - 2.5 - fA);
+      }
+    }
+    // 내 차 (주차 중이어도 절대 통과하지 않음)
+    if(Math.abs(DRIVE.z - zA) < A.wid/2 + 1.0){
+      const pD = A.dir * DRIVE.x;
+      if(pD + 1.2 > bA){ pcLim = pD - 1.2 - (1.0 + A.v*.4) - fA; dmin = Math.min(dmin, pcLim); }
+    }
+    // 걸어 다니는 나
+    if(walker && Math.abs(PLAYER.z - zA) < A.wid/2 + .7){
+      const pW = A.dir * PLAYER.x;
+      if(pW + .4 > bA){ const d = pW - .4 - 1.2 - fA; if(d < 8){ dmin = Math.min(dmin, d); waitingWalker = d < 1; } }
+    }
+    // 신호
+    if(fA < T_.STOP_P + .3 && light !== 'green'){
+      const d = T_.STOP_P - fA;
+      const canStop = light === 'yellow' ? A.v*A.v <= 2*7*Math.max(d, 0) + .3 : A.v*A.v <= 2*10*Math.max(d, 0) + 1;
+      if(canStop) dmin = Math.min(dmin, d);
+    }
+    // 마을버스 정류장
+    if(A.kind === 'bus' && !A.served && A.lane === 0){
+      const lim = -T_.BUS_X + A.len/2;
+      if(fA < lim + .3){
+        dmin = Math.min(dmin, lim - fA);
+        if(Math.abs(lim - fA) < .3 && A.v < .2 && A.off < .1){
+          A.dwell = 6; A.served = true;
+          if(out && Math.hypot(PLAYER.x - T_.BUS_X, PLAYER.z - 9.2) < 10) toast('🚌 행복 01번 마을버스가 "행복탕 앞" 정류장에 도착했어요');
+        }
+      }
+    }
+    // 멈춘 내 차는 마주 오는 차선이 비었을 때 옆으로 비켜 지나감
+    if(!A.swerve && A.off < .1 && pcLim !== null && pcLim <= dmin + .01 && pcLim < 10 && T_.pcStill > 1.5){
+      let clear = true;
+      for(const O of T_.vehicles) if(O.active && O.dir !== A.dir && Math.abs(O.g.position.x - DRIVE.x) < 32){ clear = false; break; }
+      if(clear) A.swerve = true;
+    }
+    if(A.swerve && (bA > A.dir*DRIVE.x + 1.8 || (DRIVE.active && Math.abs(DRIVE.speed) > 1))) A.swerve = false;
+    // 속도
+    let moved = 0;
+    if(A.dwell > 0){
+      A.dwell -= dt; A.v = 0;
+    } else {
+      const vt = Math.min(A.vmax*wx, dmin <= .05 ? 0 : Math.sqrt(2*6*dmin));
+      if(A.v < vt) A.v = Math.min(vt, A.v + A.acc*dt); else A.v = Math.max(vt, A.v - 14*dt);
+      moved = A.v*dt; A.p += moved;
+    }
+    const braking = A.v < .3 || dmin < A.v*A.v/(2*6) + .5;
+    A.tail.emissiveIntensity = .25 + night*.6 + (braking ? .9 : 0);
+    // 문 (정류장에서 열림)
+    if(A.door){
+      const open = A.dwell > .7 ? 1 : 0, cur = A.doorOpen || 0;
+      A.doorOpen = cur + clamp(open - cur, -dt*2.5, dt*2.5);
+      A.door.position.x = A.doorX - A.doorOpen*.85; A.door.position.z = 1.02 + A.doorOpen*.08;
+    }
+    // 경적 (나를 오래 기다릴 때, 아주 가끔)
+    A.waitT = waitingWalker ? A.waitT + dt : 0; A.honkT -= dt;
+    if(A.waitT > 3 && A.honkT <= 0){ A.honkT = 6; beep(A.kind === 'bus' ? 330 : 470, .14, 'square', .02); }
+    // 바퀴
+    A.wheels.forEach(w => w.rotation.z -= moved / (w.position.y || .23));
+    // 옆 차선으로 비키기
+    const prevOff = A.off, step = (.8 + A.v*.4)*dt, tgt = A.swerve ? 3.1 : 0;
+    A.off += clamp(tgt - A.off, -step, step);
+    const latV = (A.off - prevOff) / dt;
+    A.g.position.set(A.dir*A.p, 0, A.laneZ + A.sgn*A.off);
+    if(A.v > .15 || Math.abs(latV) > .01) A.ry = Math.atan2(-A.sgn*latV, A.dir*Math.max(A.v, .6));
+    A.g.rotation.y = A.ry;
+    // 끝까지 가면 사라졌다가 반대편에서 새로 나타남
+    if(A.p - A.len/2 > T_.EDGE){
+      A.active = false; A.g.visible = false;
+      if(A.kind === 'bus') A.wait = rnd(3, 8);
+    }
+  }
+  // ---- 나와 차가 겹치지 않게 밀어내기 ----
+  if(!out) return;
+  T_.bumpT -= dt;
+  for(const A of T_.vehicles){
+    if(!A.active) continue;
+    const hx = A.len/2, hz = A.wid/2, ax = A.g.position.x, az = A.g.position.z;
+    if(DRIVE.active){
+      const r = .95, dx = DRIVE.x - ax, dz = DRIVE.z - az, ox = hx + r - Math.abs(dx), oz = hz + r - Math.abs(dz);
+      if(ox > 0 && oz > 0){
+        if(ox < oz) DRIVE.x += Math.sign(dx || 1)*ox; else DRIVE.z += Math.sign(dz || 1)*oz;
+        if(Math.abs(DRIVE.speed) > 6 && T_.bumpT <= 0){ beep(120, .2, 'sawtooth', .03); toast('쾅! 💥 앞차를 조심하세요'); T_.bumpT = 1.5; }
+        DRIVE.speed *= -.3;
+        if(DRIVE.car) DRIVE.car.position.set(DRIVE.x, 0, DRIVE.z);
+        PLAYER.x = DRIVE.x; PLAYER.z = DRIVE.z;
+      }
+    } else {
+      const r = .32, dx = PLAYER.x - ax, dz = PLAYER.z - az, ox = hx + r - Math.abs(dx), oz = hz + r - Math.abs(dz);
+      if(ox > 0 && oz > 0){ if(ox < oz) PLAYER.x += Math.sign(dx || 1)*ox; else PLAYER.z += Math.sign(dz || 1)*oz; }
+    }
+  }
 }
 
 /* ======================= 행복아파트 주차장 ======================= */
@@ -2539,6 +3022,7 @@ function loop(ts){
     updatePlayer(dt);
     render3D(dt);
     updatePets(dt);
+    updateTraffic(dt);
   }
   updateCamera();
   followSun();
@@ -2808,6 +3292,7 @@ function init(){
   buildBathPets();
   buildPlayerExtras();
   buildCompanions();
+  buildTraffic();
   buildPremium();
   newGame();
   buildUI();

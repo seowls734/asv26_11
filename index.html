@@ -622,13 +622,14 @@ function car(x, z, color, rotY=0){
 }
 function buildOutside(){
   // 땅, 인도, 도로
-  const ground = plane(140, 140, sMat(tileTex('#cfc8b8','#bdb5a3',140,140)), 0, -.02, 0); ground.rotation.x = -Math.PI/2; ground.receiveShadow = true;
-  const side1 = plane(80, 2.6, sMat(tileTex('#d9d2c4','#b8b0a0',80,2.6)), 0, -.01, 8.7); side1.rotation.x = -Math.PI/2; side1.receiveShadow = true;
-  box(80, .15, .25, M('#9a9a9a'), 0, .06, 10.0);
-  const road = plane(80, 7, sMat(canvasTex(256,64,(g,w,h)=>{ g.fillStyle='#4a4f55'; g.fillRect(0,0,w,h); g.fillStyle='#f2c94c'; g.fillRect(0,h/2-2,w*.55,4); }, 20, 1)), 0, -.005, 13.6);
+  const ground = plane(280, 280, sMat(tileTex('#cfc8b8','#bdb5a3',280,280)), 0, -.02, 0); ground.rotation.x = -Math.PI/2; ground.receiveShadow = true;
+  const side1 = plane(260, 2.6, sMat(tileTex('#d9d2c4','#b8b0a0',260,2.6)), 0, -.01, 8.7); side1.rotation.x = -Math.PI/2; side1.receiveShadow = true;
+  box(260, .15, .25, M('#9a9a9a'), 0, .06, 10.0);
+  const road = plane(260, 7, sMat(canvasTex(256,64,(g,w,h)=>{ g.fillStyle='#4a4f55'; g.fillRect(0,0,w,h); g.fillStyle='#f2c94c'; g.fillRect(0,h/2-2,w*.55,4); }, 65, 1)), 0, -.005, 13.6);
   road.rotation.x = -Math.PI/2; road.receiveShadow = true;
   for(let i=0;i<7;i++){ const s = plane(.5, 3.0, M('#f4f4f4'), -1.8+i*.6, 0, 13.6); s.rotation.x = -Math.PI/2; }
-  box(80, .15, .25, M('#9a9a9a'), 0, .06, 17.2);
+  box(260, .15, .25, M('#9a9a9a'), 0, .06, 17.2);
+  buildRoadExt();
   // 목욕탕 외벽, 간판, 굴뚝
   const brick = canvasTex(128,128,(g,w,h)=>{ g.fillStyle='#b5654a'; g.fillRect(0,0,w,h); g.fillStyle='#e8d8c8'; for(let r=0;r<8;r++){ g.fillRect(0,r*16,w,2); for(let c=0;c<4;c++) g.fillRect(((c*32)+(r%2)*16)%w, r*16, 2, 16); } }, 8, 2);
   box(20.9, 4.2, .35, sMat(brick), 0, 2.1, -7.65);
@@ -724,6 +725,52 @@ function buildConvenience(){
   tagPick(g, {k:'shop'}); tagPick(t, {k:'shop'});
   glowPad('shop', w+.6, d+.6, cx, cz, .03);
 }
+/* ======================= 연장된 도로 (x ±45 ~ ±120) ======================= */
+// 길가 가로등(빛 계산 없이 전구만 빛남)·가로수·상가·횡단보도. 차도 이 끝에서 들어오고 나가요.
+function lampPost(x, z, side=1){
+  cyl(.06,.08,4.2,M('#5b6670'),x,2.1,z,scene,8);
+  box(.08,.06,.8,M('#5b6670'),x,4.15,z+.35*side);
+  sph(.16, glowMat('#fff6d0','#ffe08a'), x, 4.05, z+.7*side, scene, 8);
+}
+function buildRoadExt(){
+  // 맞은편(남쪽) 인도 전체
+  const s2 = plane(260, 2.6, sMat(tileTex('#d9d2c4','#b8b0a0',260,2.6)), 0, -.01, 18.6); s2.rotation.x = -Math.PI/2; s2.receiveShadow = true;
+  // 새 구간 횡단보도
+  [-75, 75].forEach(cx => { for(let i=0;i<7;i++){ const st = plane(.5, 3.0, M('#f4f4f4'), cx-1.8+i*.6, 0, 13.6); st.rotation.x = -Math.PI/2; } });
+  // 가로수(은행나무)·가로등
+  for(let x=-116; x<=116; x+=8){
+    if(Math.abs(x) > 46){ ginkgo(x+1.5, 8.6, rnd(.85,1.05)); lampPost(x-2, 9.6, -1); }
+    if(Math.abs(x+30) > 4) ginkgo(x, 18.9, rnd(.8,1)); // 맞은편 인도
+    if(x % 16 === 0) lampPost(x+3, 17.7, 1);
+  }
+  // 길가 상가 (동네 가게들)
+  const shops = [
+    ['행복 치킨','#f2994a','#ffffff'], ['동네 카페','#6b4a30','#fff4dc'], ['코인 노래방','#9b51e0','#ffffff'], ['PC방','#2d5b8a','#ffffff'],
+    ['미용실','#ff8fb1','#ffffff'], ['분식','#e05a47','#fff4dc'], ['꽃집','#5fbf8f','#ffffff'], ['수학 학원','#4a90d9','#ffffff'],
+    ['정육점','#c0392b','#ffffff'], ['빵집','#e6b35a','#5a3a1a'], ['안경점','#3b3f45','#ffffff'], ['행복 은행','#1f5fae','#ffffff'],
+    ['문구점','#f2c94c','#3b3f45'], ['세탁방','#56ccf2','#1f3b4d'], ['한의원','#7a5233','#fff4dc'], ['국밥집','#8b4a34','#fff4dc']
+  ];
+  const bases = ['#f4efe4','#fff7e6','#e9e2d0','#dfe8f2','#f3e3d3','#e4e9d6','#f0d9c8','#ece6f2'];
+  let k = 0;
+  [[47, 116], [-116, -45]].forEach(([x0, x1]) => {
+    for(let x = x0 + 3.2; x < x1 - 3; x += 7.2){
+      const [name, bg, fg] = shops[k++ % shops.length], h = rnd(4, 9), d = rnd(4.6, 5.6), z = 6.6 - d/2;
+      building(x, z, 6.2, d, h, pick(bases), {sign:name, signBg:bg, signFg:fg, awning: Math.random()<.6 ? bg : null, rows: Math.max(2, Math.round(h/1.8))});
+      // 세로 간판 (밤에 빛남)
+      if(h > 5.5 && Math.random() < .7){
+        const vs = mesh(new THREE.PlaneGeometry(.7, 2.6), new THREE.MeshLambertMaterial({map:textTex(name.replace(/\s/g,'').slice(0,4).split(''),{w:96,h:360,bg,fg,border:fg,font:58}), emissive:'#ffffff', emissiveIntensity:.12}), x+2.6, h-1.9, z+d/2+.45, scene, false);
+        W.nightGlow.push(vs.material); box(.06,.06,.45,M('#5b6670'),x+2.6,h-.7,z+d/2+.22);
+      }
+      OBST.push([x-3.2, z-d/2-.1, x+3.2, z+d/2+.1]);
+    }
+  });
+  // 도로 끝 표지판
+  [[-112, '← 시내 방향'], [112, '외곽 방향 →']].forEach(([x, t]) => {
+    sbox(.15, 3.4, .15, '#8a939b', x, 1.7, 9.7);
+    plane(2.6, .8, new THREE.MeshLambertMaterial({map:textTex(t,{w:384,h:120,bg:'#1f5fae',fg:'#ffffff',border:'#ffffff',font:50})}), x, 3.1, 9.8);
+    OBST.push([x-.2, 9.55, x+.2, 9.85]);
+  });
+}
 /* ======================= 서울 풍경 (한강공원·한강·다리·스카이라인·남산 타워) ======================= */
 // 목욕탕 뒤쪽(북쪽, z -22 아래)에 펼쳐진 서울. 카메라를 낮추면(T/G·드래그) 멀리 스카이라인이 보여요.
 const SEOUL = {boats:[], trains:[], cruise:null, riverTex:null, fountain:[], towerLight:null};
@@ -763,16 +810,16 @@ function skyscraper(x, z, w, d, h, opt={}){
 }
 function buildSeoul(){
   // ── 한강공원 (z -22 ~ -34.6, 걸어 들어갈 수 있음) ──
-  const grass = plane(130, 12.6, sMat(canvasTex(128,128,(g,w,h)=>{ g.fillStyle='#8cc56a'; g.fillRect(0,0,w,h); g.fillStyle='rgba(255,255,255,.07)'; g.fillRect(0,0,w/2,h); }, 40, 4)), 0, .004, -28.3);
+  const grass = plane(260, 12.6, sMat(canvasTex(128,128,(g,w,h)=>{ g.fillStyle='#8cc56a'; g.fillRect(0,0,w,h); g.fillStyle='rgba(255,255,255,.07)'; g.fillRect(0,0,w/2,h); }, 80, 4)), 0, .004, -28.3);
   grass.rotation.x = -Math.PI/2; grass.receiveShadow = true;
-  const walk = plane(130, 1.4, M('#e3d7bf'), 0, .008, -25.6); walk.rotation.x = -Math.PI/2; walk.receiveShadow = true;
-  const bike = plane(130, 1.8, sMat(canvasTex(256,32,(g,w,h)=>{ g.fillStyle='#c96a5a'; g.fillRect(0,0,w,h); g.fillStyle='#fff'; for(let i=0;i<w;i+=32) g.fillRect(i,h/2-1,16,2); }, 40, 1)), 0, .008, -31.2);
+  const walk = plane(260, 1.4, M('#e3d7bf'), 0, .008, -25.6); walk.rotation.x = -Math.PI/2; walk.receiveShadow = true;
+  const bike = plane(260, 1.8, sMat(canvasTex(256,32,(g,w,h)=>{ g.fillStyle='#c96a5a'; g.fillRect(0,0,w,h); g.fillStyle='#fff'; for(let i=0;i<w;i+=32) g.fillRect(i,h/2-1,16,2); }, 80, 1)), 0, .008, -31.2);
   bike.rotation.x = -Math.PI/2; bike.receiveShadow = true;
   // 강변 난간
-  box(130, .08, .08, M('#e8eef2'), 0, 1.0, -34.75); box(130, .06, .06, M('#e8eef2'), 0, .55, -34.75);
-  for(let x=-64; x<=64; x+=2) sbox(.08, 1.0, .08, '#c8d0d6', x, .5, -34.75);
+  box(260, .08, .08, M('#e8eef2'), 0, 1.0, -34.75); box(260, .06, .06, M('#e8eef2'), 0, .55, -34.75);
+  for(let x=-128; x<=128; x+=(Math.abs(x)<64?2:4)) sbox(.08, 1.0, .08, '#c8d0d6', x, .5, -34.75);
   // 은행나무 줄
-  for(let x=-46; x<=46; x+=5.5) if(Math.abs(x+20) > 4 && Math.abs(x+30) > 3) ginkgo(x + rnd(-.4,.4), -23.8, rnd(.9,1.15));
+  for(let x=-100; x<=100; x+=5.5) if(Math.abs(x+20) > 4 && Math.abs(x+30) > 3) ginkgo(x + rnd(-.4,.4), -23.8, rnd(.9,1.15));
   // 벤치 (강 쪽을 바라봄)
   [-38,-12,4,16,34].forEach(x => { box(1.6,.1,.45,M('#a8703c'),x,.45,-33.2); box(1.6,.4,.06,M('#a8703c'),x,.7,-32.98); box(.06,.42,.4,M('#555'),x-.7,.21,-33.2); box(.06,.42,.4,M('#555'),x+.7,.21,-33.2); OBST.push([x-.85,-33.5,x+.85,-32.9]); });
   // 돗자리 + 치킨 + 그늘막 텐트
@@ -940,7 +987,7 @@ function collide(P, R=.32, extra=null, room=null){
   if(room==='home'){ P.x = clamp(P.x, HX-3.9, HX+3.9); P.z = clamp(P.z, -3.0, 3.0); }
   else if(room==='prem'){ P.x = clamp(P.x, PX-5.6, PX+5.6); P.z = clamp(P.z, -4.3, 4.3); }
   else if(room==='store'){ const sh = curShop(), b = sh.bounds; P.x = clamp(P.x, sh.X+b[0], sh.X+b[1]); P.z = clamp(P.z, b[2], b[3]); }
-  else { P.x = clamp(P.x, -45, 45); P.z = clamp(P.z, -34, 16.8); }
+  else { P.x = clamp(P.x, -110, 110); P.z = clamp(P.z, -34, 16.8); }
   for(const r of (room==='prem' ? PREM_OBST : room==='home' ? HOME_OBST : room==='store' ? curShop().obst : extra ? OBST.concat(extra) : OBST)){
     const nx = clamp(P.x, r[0], r[2]), nz = clamp(P.z, r[1], r[3]);
     const dx = P.x - nx, dz = P.z - nz, d = Math.hypot(dx, dz);
@@ -1799,7 +1846,7 @@ const TRAFFIC = {
   t: 0, vehicles: [], geo: {}, light: '', pedFlash: -1, cd: -1,
   lanes: [{z: 12.1, dir: -1, sgn: 1}, {z: 15.2, dir: 1, sgn: -1}],
   spawnT: [1.5, 2.5], pcStill: 0, bumpT: 0, chimeT: 0,
-  STOP_P: -2.6, EDGE: 47, CYCLE: 22, // 초록 12초 · 노랑 2초 · 빨강 8초
+  STOP_P: -2.6, EDGE: 118, CYCLE: 22, // 초록 12초 · 노랑 2초 · 빨강 8초
   BUS_X: 15.3, SHELTER: {x0: 13.6, x1: 17.0}
 };
 const TRF_COLORS = ['#e05a47','#4a90d9','#f4f4f4','#3b3f45','#f2c94c','#8e6fd1','#5fbf8f','#c0c6cc','#e88fb0','#2d5b8a','#d9823b'];
@@ -2065,8 +2112,8 @@ function buildTraffic(){
   });
   trfShelter();
   // 차량 풀: 승용차 7 · 택시 2 · 용달 2 · 마을버스 1
-  for(let i=0; i<7; i++) T_.vehicles.push(trfSedan(pick(TRF_COLORS)));
-  T_.vehicles.push(trfTaxi(), trfTaxi(), trfTruck(), trfTruck());
+  for(let i=0; i<14; i++) T_.vehicles.push(trfSedan(pick(TRF_COLORS)));
+  T_.vehicles.push(trfTaxi(), trfTaxi(), trfTaxi(), trfTruck(), trfTruck(), trfTruck());
   T_.bus = trfBus(); T_.vehicles.push(T_.bus);
   // 처음 배치 (내 차 (3, 12.2) 근처는 피함)
   const init = [[0, -38], [0, 12], [0, 30], [1, -25], [1, 6], [1, 27]];
@@ -2148,7 +2195,7 @@ function updateTraffic(dt){
   T_.vehicles.forEach(v => { if(v.taxiMat) v.taxiMat.emissiveIntensity = .1 + night*.8; });
   // ---- 날씨·밤에 따라 차 수 / 속도 ----
   const wx = S.weather === 'snow' ? .62 : S.weather === 'rain' ? .8 : 1;
-  const target = Math.round(7 - night*3.5 - (wx < 1 ? 1 : 0));
+  const target = Math.round(14 - night*6 - (wx < 1 ? 2 : 0)); // 도로가 길어져서 차도 늘림
   // 내 차가 멈춰 있는 시간 (멈춘 차는 옆 차선으로 비켜 지나감)
   T_.pcStill = (!DRIVE.active || Math.abs(DRIVE.speed) < .4) ? T_.pcStill + dt : 0;
   // ---- 새 차 등장 ----

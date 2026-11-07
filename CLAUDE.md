@@ -10,6 +10,7 @@
 - **실행**: 브라우저로 `index.html`을 열면 끝. 3D 엔진 **Three.js r128**을 CDN에서 불러오므로 **인터넷 연결이 필요**함.
   - `https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js` (전역 `THREE`)
   - 폰트: Google Fonts `Jua`, `Gowun Dodum`
+- **사이트(GitHub Pages)**: https://seowls734.github.io/asv26_11/ — main에 푸시하면 1~2분 뒤 자동 반영.
 - **게시**: claude.ai 아티팩트로 게시됨 (`https://claude.ai/artifact/TtaQdmyhUiJC3Miev8Pd8S`). 수정 후에는 같은 아티팩트에 다시 게시.
 - **외부 라이브러리 추가 금지**: r128 전역 빌드만 사용. `CapsuleGeometry`(r139+), ES 모듈, OrbitControls 등은 쓰지 않음.
 

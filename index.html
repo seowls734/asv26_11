@@ -205,7 +205,7 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
 <div id="app">
   <header id="hud">
     <div class="sign" id="signBtn" style="cursor:default">♨ 행복탕</div>
-    <div class="stat">📅 <span id="day">1</span>/7일</div>
+    <div class="stat">📅 <span id="day">1</span><span id="dayMax">/7</span>일</div>
     <div class="stat">🕐 <span id="clock">06:00</span></div>
     <div class="stat">💰 <span id="money">0</span>원</div>
     <div class="stat">⭐ <span id="rep">3.0</span></div>
@@ -3361,9 +3361,9 @@ function endDayCustomer(){
     <div class="sumrow total"><span>😊 개운함</span><b>${Math.round(S.fresh)}점</b></div>
     <div class="sumrow"><span>남은 돈</span><b>${won(S.wallet)}원</b></div>`;
   S.freshSum = (S.freshSum||0) + S.fresh; S.buff = {};
-  if(S.day >= DAYS){
+  if(S.day >= DAYS && !S.endless){
     const avg = Math.round(S.freshSum / DAYS);
-    return showModal(html + `<div class="big-sign">${avg>=80?'🏆 목욕 달인':avg>=50?'♨️ 목욕 좋아하는 사람':'🫧 목욕 초보'}</div><p style="text-align:center">7일 평균 개운함 ${avg}점</p>`, [['🔁 다시 하기', ()=>{ newGame(); showTitle(); }, 'primary']]);
+    return showModal(html + `<div class="big-sign">${avg>=80?'🏆 목욕 달인':avg>=50?'♨️ 목욕 좋아하는 사람':'🫧 목욕 초보'}</div><p style="text-align:center">7일 평균 개운함 ${avg}점</p>`, [['🌙 계속 놀기', () => { S.endless = true; updateHUD(); goNight(); }, 'primary']]);
   }
   showModal(html + `<p style="text-align:center;margin-top:10px">🏠 우리 집(행복아파트)에 가서 침대에서 <b>E</b>를 눌러 자요. 내일 용돈 30,000원이 생겨요!</p>`, [['🌙 집에 가기', goNight, 'primary']]);
 }
@@ -4134,7 +4134,7 @@ function renderPanel(){
 }
 function updateHUD(){
   if(!Number.isFinite(S.money)) S.money = 0; if(!Number.isFinite(S.wallet)) S.wallet = 0; // 돈이 깨지면 0으로 복구
-  $('#day').textContent = S.day;
+  $('#day').textContent = S.day; $('#dayMax').style.display = S.endless ? 'none' : '';
   if(S.role==='customer'){ $('#money').textContent = won(S.wallet) + ' (지갑)'; $('#rep').textContent = '개운함 ' + Math.round(S.fresh); }
   else { $('#money').textContent = won(S.money); $('#rep').textContent = S.rep.toFixed(1); }
   const wt = WEATHER[S.weather]; $('#weather').textContent = `${wt.icon} ${wt.name}`;
@@ -4212,11 +4212,11 @@ function endDay(){
     <div class="sumrow"><span>동네 평판</span><b>⭐ ${S.rep.toFixed(2)} · 내일 손님 ${repSpawnMul() < .95 ? '많이 와요 📈' : repSpawnMul() > 1.05 ? '줄어요 📉' : '보통이에요'}</b></div>
     ${S.day < DAYS ? `<div class="sumrow"><span>📺 내일 날씨 예보</span><b>${WEATHER[S.nextWeather].icon} ${WEATHER[S.nextWeather].name} · ${WEATHER[S.nextWeather].desc}</b></div>` : ''}`;
   S.buff = {};
-  const restart = ['다시 시작', ()=>{ newGame(); showTitle(); }, 'primary'];
-  if(S.money < 0) return showModal(html + `<p style="text-align:center;margin-top:12px">💸 가게 통장이 바닥났어요… 행복탕이 문을 닫습니다.</p>`, [restart]);
-  if(S.rep < 1.4) return showModal(html + `<p style="text-align:center;margin-top:12px">😢 평판이 너무 나빠져서 손님이 끊겼어요…</p>`, [restart]);
-  if(S.day >= DAYS) return showModal(html, [['최종 결과 보기 🏆', showEnding, 'primary']]);
-  showModal(html + `<p style="text-align:center;margin-top:10px">🌙 오늘 영업 끝! <b>🏠 우리 집(행복아파트)</b>에 가서 침대에서 <b>E</b>를 눌러 자면 다음 날 아침이 와요.</p>`, [['🌙 퇴근하기', goNight, 'primary']]);
+  // 다시 시작(게임 오버) 없음: 돈이 바닥나거나 평판이 낮아도 경고만 하고 계속 영업해요
+  const warn = (S.money < 0 ? `<p style="text-align:center;margin-top:12px;color:#d9483b">💸 통장이 마이너스예요! 알바를 하거나 손님을 더 받아서 메워 봐요.</p>` : '')
+             + (S.rep < 1.4 ? `<p style="text-align:center;margin-top:12px;color:#d9483b">😢 평판이 많이 낮아요… 청소와 온도 관리로 다시 올려 봐요!</p>` : '');
+  if(S.day >= DAYS && !S.endless) return showModal(html + warn, [['최종 결과 보기 🏆', showEnding, 'primary']]);
+  showModal(html + warn + `<p style="text-align:center;margin-top:10px">🌙 오늘 영업 끝! <b>🏠 우리 집(행복아파트)</b>에 가서 침대에서 <b>E</b>를 눌러 자면 다음 날 아침이 와요.</p>`, [['🌙 퇴근하기', goNight, 'primary']]);
 }
 function showShop(){
   const items = UPG.map(u => {
@@ -4253,7 +4253,7 @@ function showEnding(){
     <div class="sumrow"><span>최종 평판</span><b>⭐ ${S.rep.toFixed(2)}</b></div>
     <div class="sumrow"><span>총 손님</span><b>${S.total.served}명 (화나서 간 손님 ${S.total.angry}명)</b></div>
     <div class="sumrow total"><span>최종 점수</span><b>${won(score)}점</b></div>`,
-    [['🔁 다시 하기', ()=>{ newGame(); showTitle(); }, 'primary']]);
+    [['🌙 계속 영업하기', () => { S.endless = true; updateHUD(); goNight(); }, 'primary']]);
 }
 
 /* ======================= 모달 / 알림 ======================= */

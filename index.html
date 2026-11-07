@@ -3084,7 +3084,7 @@ function applyRoleLook(){
 }
 function startRole(role){
   S.role = role; applyRoleLook();
-  if(role==='customer'){ S.wallet = 50000; S.fresh = 0; S.course = {}; PLAYER.x = 0; PLAYER.z = 9.2; PLAYER.ry = Math.PI; cam.target.set(0,0,6); }
+  if(role==='customer'){ S.wallet = 250000; S.fresh = 0; S.course = {}; PLAYER.x = 0; PLAYER.z = 9.2; PLAYER.ry = Math.PI; cam.target.set(0,0,6); }
   startDay();
 }
 function useFacility(k){
@@ -3530,7 +3530,7 @@ function buildUI(){
 function newGame(){
   if(S) S.people.forEach(c => { removePerson(c.p); c.tag.remove(); });
   lockerUse.fill(0);
-  S = {day:1, money:30000, rep:3, time:0, phase:'menu', paused:false,
+  S = {day:1, money:230000, rep:3, time:0, phase:'menu', paused:false,
        fac:{}, queue:[], people:[], upg:{}, spawnT:1.5, nextId:1, cleanT:0,
        milk:{stock:6, max:6}, total:{served:0, revenue:0, angry:0}, ds:null,
        weather:'sunny', nextWeather:'sunny', eggs:0, umbrella:false,
@@ -4077,7 +4077,7 @@ function showTitle(){
       <li>쓸수록 더러워져요. <b>🧹</b>로 청소!</li>
       <li><b>👑 VIP</b>: 금빛 수건·선글라스. 요금 3배에 팁 15,000원! 대신 깨끗함(80% 이상)과 온도에 아주 까다롭고, 화나면 평판이 크게 떨어져요.</li>
       <li><b>👿 진상</b>: 인내심이 짧고 시설을 3배로 어지럽혀요. 💢 소리 지르면 다른 손님 인내심이 깎이니 얼른 눌러서(또는 E) 진정시키세요. 가끔 반값을 요구해요.</li>
-      <li><b>🧖 손님 모드</b>: 지갑 50,000원으로 온탕·냉탕·사우나·때밀이·바나나우유 코스를 직접 즐겨요. 시설 가까이에서 E! 개운함 점수를 높이면 이겨요.</li>
+      <li><b>🧖 손님 모드</b>: 지갑 250,000원으로 온탕·냉탕·사우나·때밀이·바나나우유 코스를 직접 즐겨요. 시설 가까이에서 E! 개운함 점수를 높이면 이겨요.</li>
       <li><b>🏪 편의점</b>: 문 앞에서 E로 들어가 진열대에서 E로 장바구니에 담고, 계산대에서 E로 계산해요.</li>
       <li><b>🛍️ 천원샵</b>: 편의점 왼쪽! 사장님은 때수건·대야·미끄럼 매트 같은 <b>영업 도우미</b>, 손님은 양머리 수건·목욕 오리 같은 <b>개운함 아이템</b>이 진열돼요. 효과는 그날 하루 (밤에 사면 다음 날까지).</li>
       <li><b>🐾 펫샵</b>: 천원샵 왼쪽! 강아지·고양이·햄스터를 입양하면 졸졸 따라다녀요. 사장님은 <b>가게 고양이</b>(대기 손님 인내심 +15%)와 <b>대기실 어항</b>(만족도 +5)을 들일 수 있어요.</li>

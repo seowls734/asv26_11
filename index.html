@@ -41,6 +41,7 @@ button,.jua{font-family:'Jua',sans-serif;font-weight:400}
 .admgrid>b{font-family:'Jua';font-weight:400;font-size:15px;white-space:nowrap}
 .admgrid>div{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
 #basket{position:absolute;right:10px;top:10px;z-index:4;background:rgba(255,250,242,.96);border:2px solid var(--ink);border-radius:12px;padding:6px 10px;font-size:13px;min-width:170px;box-shadow:0 3px 0 var(--ink)}
+#buffs{position:absolute;left:10px;top:44px;z-index:3;background:rgba(255,250,242,.94);border:2px solid var(--ink);border-radius:10px;padding:2px 9px;font-size:14px}
 #basket b{font-family:'Jua';font-weight:400;font-size:15px}
 #basket .tot{margin-top:4px;border-top:1px dashed #c9b99a;padding-top:3px;font-family:'Jua'}
 #course{display:none;flex-wrap:wrap;gap:6px;margin-top:12px;background:var(--paper);border:3px solid var(--ink);border-radius:12px;box-shadow:0 3px 0 var(--ink);padding:8px 10px;align-items:center}
@@ -165,6 +166,7 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
     <div class="actbtns"><button id="actE">E<br>안내</button><button class="sm" id="actR">🧹<br>청소</button><button class="sm" id="actF">🌡️<br>온도</button></div>
     <div id="fade"></div>
     <div id="basket" style="display:none"></div>
+    <div id="buffs" style="display:none"></div>
     <div class="camctl"><button id="zin" title="확대">＋</button><button id="zout" title="축소">－</button><button id="zreset" title="시점 초기화">⟲</button><button id="joyToggle" title="조이스틱 켜기/끄기">🕹️</button></div>
   </div>
   <div id="panel"></div>
@@ -655,6 +657,7 @@ function buildOutside(){
   building(-14.5, -7.0, 5.5, 4.4, 4.5, '#f4efe4', {sign:'세탁소', signBg:'#3d7cc9', signFg:'#ffffff', awning:'#3d7cc9', rows:2});
   building(-14.5, -1.6, 5.5, 4.6, 4, '#fff7e6', {sign:'떡볶이', signBg:'#e05a47', signFg:'#fff4dc', awning:'#e05a47', rows:2});
   buildConvenience();
+  buildDaiso();
   // 오른쪽
   building(15, -5, 6, 6, 6.5, '#f3e3d3', {sign:'행복 부동산', signBg:'#fffaf2', rows:3});
   building(14.5, 4.5, 5, 5, 3.6, '#dfe8f2', {sign:'약국', signBg:'#2fa36b', signFg:'#ffffff', awning:'#2fa36b', rows:2});
@@ -663,6 +666,7 @@ function buildOutside(){
   [-11,11].forEach(x => streetLight(x, 9.4)); streetLight(19.5, 8.2);
   W.hallLight = new THREE.PointLight('#ffe9c4', 0, 30); W.hallLight.position.set(0, 6, -1); scene.add(W.hallLight);
   buildApartment();
+  buildParking();
   box(1.6,.1,.45,M('#a8703c'),6,.45,9.1); box(1.6,.4,.06,M('#a8703c'),6,.7,8.9);
   box(.06,.42,.4,M('#555'),5.3,.21,9.1); box(.06,.42,.4,M('#555'),6.7,.21,9.1);
 }
@@ -737,9 +741,9 @@ function rectDist(x, z, r){ const dx = Math.max(r[0]-x, 0, x-r[2]), dz = Math.ma
 function collide(P, R=.32, extra=null, room=null){
   if(room==='home'){ P.x = clamp(P.x, HX-3.9, HX+3.9); P.z = clamp(P.z, -3.0, 3.0); }
   else if(room==='prem'){ P.x = clamp(P.x, PX-5.6, PX+5.6); P.z = clamp(P.z, -4.3, 4.3); }
-  else if(room==='store'){ P.x = clamp(P.x, SX-4.2, SX+4.2); P.z = clamp(P.z, -3.2, 3.3); }
+  else if(room==='store'){ const sh = curShop(), b = sh.bounds; P.x = clamp(P.x, sh.X+b[0], sh.X+b[1]); P.z = clamp(P.z, b[2], b[3]); }
   else { P.x = clamp(P.x, -45, 45); P.z = clamp(P.z, -34, 16.8); }
-  for(const r of (room==='prem' ? PREM_OBST : room==='home' ? HOME_OBST : room==='store' ? STORE_OBST : extra ? OBST.concat(extra) : OBST)){
+  for(const r of (room==='prem' ? PREM_OBST : room==='home' ? HOME_OBST : room==='store' ? curShop().obst : extra ? OBST.concat(extra) : OBST)){
     const nx = clamp(P.x, r[0], r[2]), nz = clamp(P.z, r[1], r[3]);
     const dx = P.x - nx, dz = P.z - nz, d = Math.hypot(dx, dz);
     if(d < R){
@@ -780,8 +784,12 @@ function exitCar(){
   if(Math.abs(DRIVE.speed) > 2) return toast('먼저 차를 멈춰 주세요 (S로 브레이크)');
   DRIVE.active = false; DRIVE.speed = 0;
   // 운전석 옆으로 내림
-  PLAYER.x = DRIVE.x + Math.sin(DRIVE.h)*1.4; PLAYER.z = DRIVE.z + Math.cos(DRIVE.h)*1.4; collide(PLAYER);
+  // 운전석 쪽이 막혀 있으면(벽·울타리) 반대쪽으로 내림
+  const side = sgn => { const q = {x:DRIVE.x + Math.sin(DRIVE.h)*1.4*sgn, z:DRIVE.z + Math.cos(DRIVE.h)*1.4*sgn}, x0 = q.x, z0 = q.z; collide(q); return {q, moved:Math.hypot(q.x-x0, q.z-z0)}; };
+  const L = side(1), R = side(-1), best = L.moved <= R.moved + .05 ? L.q : R.q;
+  PLAYER.x = best.x; PLAYER.z = best.z;
   PLAYER.p.g.visible = true;
+  checkParked();
 }
 function updateCar(dt){
   const k = PLAYER.keys, J = PLAYER.joy;
@@ -808,7 +816,7 @@ function interactMain(){
   if(DRIVE.active) return exitCar();
   if(PLAYER.using) return;
   if(PLAYER.inStore){ if(nearStoreDoorIn()) return exitStore(); if(nearCounter()) return payBasket(); const sh = nearShelf(); if(sh >= 0) return addToBasket(sh); return; }
-  if(nearStoreDoorOut()) return enterStore();
+  const sd = shopDoorNear(); if(sd) return enterStore(sd);
   if(PLAYER.inPrem){ if(nearPremDoorIn()) return exitPrem(); if(nearPremBed()) return S.premium ? sleep() : toast('구매해야 여기서 잘 수 있어요'); if(nearJacuzzi()) return soakJacuzzi(); return; }
   if(nearPremDoorOut()) return premDoor();
   if(nearBed()) return sleep();
@@ -827,6 +835,8 @@ function interactTemp(){ const {fac} = nearestTargets(); if(fac && FAC[fac] && F
 function modalOpen(){ return !$('#modal').classList.contains('hidden'); }
 function updatePlayer(dt){
   const P = PLAYER, k = P.keys, p = P.p;
+  if(P.basket) P.basket.visible = P.inStore && S.basket.length > 0;
+  if(P.sheep) P.sheep.visible = S.role==='customer' && !!S.buff.sheep;
   if(DRIVE.active) return updateCar(dt);
   if(PLAYER.using){
     const a = SLOTS[PLAYER.using.k][PLAYER.using.i], sl = S.fac[PLAYER.using.k].slots[PLAYER.using.i];
@@ -852,7 +862,7 @@ function updatePlayer(dt){
     const sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
     const dx = ix*cy + iz*sy, dz = -ix*sy + iz*cy;
     const run = k.ShiftLeft || k.ShiftRight || Math.hypot(P.joy.x, P.joy.y) > .92;
-    const sp = (run ? 8.5 : 5.2) * dt;
+    const sp = (run ? 8.5 : 5.2) * dt * (S.role==='customer' && S.buff.slipper ? 1.2 : 1);
     P.x += dx*sp; P.z += dz*sp; collide(P, .32, null, P.inHome ? 'home' : P.inStore ? 'store' : P.inPrem ? 'prem' : null);
     let diff = Math.atan2(dx, dz) - P.ry; diff = Math.atan2(Math.sin(diff), Math.cos(diff));
     P.ry += diff * Math.min(1, dt*14);
@@ -867,9 +877,9 @@ function updatePlayer(dt){
   if(PLAYER.inStore){
     if(nearStoreDoorIn()) h = '<b>E</b> 밖으로 나가기 🚪';
     else if(nearCounter()) h = `<b>E</b> 계산하기 🧾 (${S.basket.length}개)`;
-    else if(sh >= 0){ const it = storeItems()[sh]; h = `<b>E</b> ${it.ico} ${it.name} 담기 · ${won(it.cost)}원`; }
+    else if(sh >= 0){ const it = storeItems()[sh]; h = (it.once && S.buff[it.id]) ? `${it.ico} ${it.name} ✅ 오늘 구매 완료` : `<b>E</b> ${it.ico} ${it.name} 담기 · ${won(it.cost)}원${it.desc ? ` <small>(${it.desc})</small>` : ''}`; }
   }
-  else if(nearStoreDoorOut()) h = '<b>E</b> 편의점 들어가기 🏪';
+  else if(shopDoorNear()) h = shopDoorNear()==='daiso' ? '<b>E</b> 천원샵 들어가기 🛍️' : '<b>E</b> 편의점 들어가기 🏪';
   else if(PLAYER.inPrem){ h = nearPremDoorIn() ? '<b>E</b> 밖으로 나가기 🚪' : nearPremBed() ? (S.phase==='night' ? '<b>E</b> 킹 침대에서 자기 💤✨' : '킹 침대 (밤에 잘 수 있어요)') : nearJacuzzi() ? (S.jacuzziDay === S.day ? '자쿠지 (오늘은 이미 즐겼어요)' : '<b>E</b> 자쿠지 즐기기 🛁') : ''; }
   else if(nearPremDoorOut()) h = S.premium ? '<b>E</b> 내 펜트하우스 들어가기 🏙️' : `<b>E</b> 프리미엄 타워 (${won(premPrice())}원)`;
   else if(nearBed()) h = S.phase==='night' ? '<b>E</b> 잠자기 💤' : '침대 (밤에 잘 수 있어요)';
@@ -1048,7 +1058,7 @@ function adminAction(a){
   if(a==='milk'){ S.milk.stock = Math.max(S.milk.stock, 18); S.eggs = Math.max(S.eggs, 30); }
   if(a.startsWith('sp')) ADMIN.speed = +a.slice(2);
   if(a==='close' && S.phase==='day') S.time = DAY_LEN;
-  if(a==='night' && inDay){ S.queue.slice().forEach(c => { removeFromQueue(c); leaveWalk(c, '내일 올게요 👋'); }); for(const k in FAC) S.fac[k].slots = S.fac[k].slots.map(()=>null); PLAYER.using = null; S.people.forEach(c => { if(c.loc==='svc'){ c.atK = null; leaveWalk(c,'👋'); } }); if(!S.ds) S.ds = {visitors:0, served:0, services:0, angry:0, revenue:0, cost:0, milk:0, moodSum:0, startMoney:S.money}; S.phase = 'night'; }
+  if(a==='night' && inDay){ S.queue.slice().forEach(c => { removeFromQueue(c); leaveWalk(c, '내일 올게요 👋'); }); for(const k in FAC) S.fac[k].slots = S.fac[k].slots.map(()=>null); PLAYER.using = null; S.people.forEach(c => { if(c.loc==='svc'){ c.atK = null; leaveWalk(c,'👋'); } }); S.buff = {}; if(!S.ds) S.ds = {visitors:0, served:0, services:0, angry:0, revenue:0, cost:0, milk:0, moodSum:0, startMoney:S.money}; S.phase = 'night'; }
   if(a==='d_minus') S.day = Math.max(1, S.day-1);
   if(a==='d_plus') S.day = Math.min(DAYS, S.day+1);
   if(a==='pat') ADMIN.noPatience = !ADMIN.noPatience;
@@ -1056,42 +1066,68 @@ function adminAction(a){
   sfx.click(); updateHUD(); openAdmin();
 }
 
-/* ======================= 편의점 안 (직접 골라 사기) ======================= */
-const SX = 100, STORE_DOOR_OUT = {x:-15, z:8.4}, STORE_DOOR_IN = {x:96.4, z:2.9}, STORE_COUNTER = {x:103.4, z:2.7};
-const SHELVES = [[97,-2.5],[99.3,-2.5],[101.6,-2.5],[97.8,.3],[100.6,.3]];
-const STORE_OBST = SHELVES.map(([x,z]) => [x-.85, z-.45, x+.85, z+.45]).concat([[102.6,1.4,104.4,2.2]]);
+/* ======================= 가게 안 (편의점·천원샵에서 직접 골라 사기) ======================= */
+const SX = 100, DX = 160;
 const OWNER_ITEMS = [
-  {ico:'🍌🥛', name:'바나나우유 6병',   cost:9000,  col:'#ffd94a', buy(){ S.milk.stock += 6; }},
-  {ico:'🧴',  name:'세제·샴푸 세트',   cost:8000,  col:'#56ccf2', buy(){ for(const k in FAC) S.fac[k].clean = 100; }},
-  {ico:'🥚',  name:'맥반석 계란 10알', cost:8000,  col:'#c98a52', buy(){ S.eggs += 10; }},
-  {ico:'🍹',  name:'식혜 (손님 대접)', cost:6000,  col:'#f2e3b0', buy(){ S.queue.forEach(c => { c.patience = c.maxP; c.mood = Math.min(100, c.mood+10); }); }},
-  {ico:'☂️',  name:'우산 대여함',      cost:15000, col:'#4a90d9', ok:()=>!!WEATHER[S.weather].fx && !S.umbrella, why:'비·눈 오는 날만 살 수 있어요', buy(){ S.umbrella = true; }},
+  {ico:'🍌🥛', name:'바나나우유 6병',   desc:'냉장고 재고 +6',            cost:9000,  col:'#ffd94a', buy(){ S.milk.stock += 6; }},
+  {ico:'🧴',  name:'세제·샴푸 세트',   desc:'모든 시설 청결 100%',       cost:8000,  col:'#56ccf2', buy(){ for(const k in FAC) S.fac[k].clean = 100; }},
+  {ico:'🥚',  name:'맥반석 계란 10알', desc:'사우나 손님에게 +1,500원',  cost:8000,  col:'#c98a52', buy(){ S.eggs += 10; }},
+  {ico:'🍹',  name:'식혜 (손님 대접)', desc:'대기 손님 인내심 가득',     cost:6000,  col:'#f2e3b0', buy(){ S.queue.forEach(c => { c.patience = c.maxP; c.mood = Math.min(100, c.mood+10); }); }},
+  {ico:'☂️',  name:'우산 대여함',      desc:'비·눈 와도 손님이 보통만큼', cost:15000, col:'#4a90d9', ok:()=>!!WEATHER[S.weather].fx && !S.umbrella, why:'비·눈 오는 날만 살 수 있어요', buy(){ S.umbrella = true; }},
 ];
 const CUST_ITEMS = [
-  {ico:'🍌🥛', name:'바나나우유',  cost:1500, col:'#ffd94a', buy(){ S.fresh = Math.min(100, S.fresh+8); }},
-  {ico:'🍦',  name:'아이스크림',  cost:1000, col:'#ff8fb1', buy(){ S.fresh = Math.min(100, S.fresh+5); }},
-  {ico:'🍜',  name:'컵라면',      cost:1200, col:'#e85d5d', buy(){ S.fresh = Math.min(100, S.fresh+6); }},
-  {ico:'🍹',  name:'식혜',        cost:1000, col:'#f2e3b0', buy(){ S.fresh = Math.min(100, S.fresh+5); }},
-  {ico:'🧴',  name:'여행용 샴푸', cost:2000, col:'#56ccf2', buy(){ S.fresh = Math.min(100, S.fresh+4); }},
+  {ico:'🍌🥛', name:'바나나우유',  desc:'개운함 +8', cost:1500, col:'#ffd94a', buy(){ S.fresh = Math.min(100, S.fresh+8); }},
+  {ico:'🍦',  name:'아이스크림',  desc:'개운함 +5', cost:1000, col:'#ff8fb1', buy(){ S.fresh = Math.min(100, S.fresh+5); }},
+  {ico:'🍜',  name:'컵라면',      desc:'개운함 +6', cost:1200, col:'#e85d5d', buy(){ S.fresh = Math.min(100, S.fresh+6); }},
+  {ico:'🍹',  name:'식혜',        desc:'개운함 +5', cost:1000, col:'#f2e3b0', buy(){ S.fresh = Math.min(100, S.fresh+5); }},
+  {ico:'🧴',  name:'여행용 샴푸', desc:'개운함 +4', cost:2000, col:'#56ccf2', buy(){ S.fresh = Math.min(100, S.fresh+4); }},
 ];
-const storeItems = () => S.role==='customer' ? CUST_ITEMS : OWNER_ITEMS;
+// 천원샵: 사장님 물건 = 그날 영업 도우미 / 손님 물건 = 목욕이 더 개운해짐. once 물건은 하루에 하나, 효과는 그날 마감까지 (S.buff)
+const DAISO_OWNER = [
+  {id:'scrubTowel', ico:'🧽', name:'이태리 때수건 30장', desc:'오늘 때밀이 요금 +3,000원',          cost:5000, col:'#6fcf97', kind:'towel',  once:true},
+  {id:'basin',      ico:'🪣', name:'대야·바가지 세트',   desc:'오늘 시설이 절반만 더러워져요',      cost:4000, col:'#f2c94c', kind:'basin',  once:true},
+  {id:'mat',        ico:'🟩', name:'미끄럼 방지 매트',   desc:'대기 손님 인내심이 천천히 줄어요',   cost:3000, col:'#4fae5c', kind:'roll',   once:true},
+  {id:'towel',      ico:'🧺', name:'뽀송 수건 20장',     desc:'나가는 손님 만족도 +10 (팁 UP)',     cost:5000, col:'#bfe3ff', kind:'towel',  once:true},
+  {id:'aroma',      ico:'🌿', name:'편백 방향제',        desc:'진상 손님이 덜 소리 질러요',         cost:2000, col:'#9bd18b', kind:'aroma',  once:true},
+  {id:'chime',      ico:'🎐', name:'풍경 장식',          desc:'가게 분위기 UP · 평판 +0.15',        cost:3000, col:'#56ccf2', kind:'chime',  once:true, buy(){ S.rep = Math.min(5, S.rep + .15); }},
+];
+const DAISO_CUST = [
+  {id:'cTowel',  ico:'🧽', name:'때수건',         desc:'오늘 때밀이 개운함 +10',       cost:1000, col:'#6fcf97', kind:'towel',   once:true},
+  {id:'duck',    ico:'🐤', name:'목욕 오리 장난감', desc:'오늘 온탕 개운함 +6',         cost:1000, col:'#ffd14a', kind:'duck',    once:true},
+  {id:'sheep',   ico:'🐑', name:'양머리 수건',    desc:'오늘 사우나 개운함 +6 · 머리에 써요', cost:2000, col:'#ffc0d6', kind:'roll', once:true},
+  {id:'slipper', ico:'🩴', name:'푹신 슬리퍼',    desc:'오늘 걷는 속도 +20%',          cost:2000, col:'#56ccf2', kind:'slipper', once:true},
+  {ico:'🧴', name:'미니 바디워시', desc:'개운함 +4', cost:2000, col:'#ff8fb1', kind:'bottle', buy(){ S.fresh = Math.min(100, S.fresh+4); }},
+  {ico:'🍭', name:'막대 사탕',     desc:'개운함 +3', cost:1000, col:'#e85d5d', kind:'candy',  buy(){ S.fresh = Math.min(100, S.fresh+3); }},
+];
+const SHOPS = {
+  conv:  {name:'편의점', X:SX, doorOut:{x:-15, z:8.4}, doorIn:{x:96.4, z:2.9}, counter:{x:103.4, z:2.7},
+          shelves:[[97,-2.5],[99.3,-2.5],[101.6,-2.5],[97.8,.3],[100.6,.3]], sw:1.6, bounds:[-4.2,4.2,-3.2,3.3],
+          counterRect:[102.6,1.4,104.4,2.2], owner:OWNER_ITEMS, cust:CUST_ITEMS, hello:'"어서 오세요~" 진열대 앞에서 E로 담고, 계산대에서 E로 계산해요'},
+  daiso: {name:'천원샵', X:DX, doorOut:{x:-24, z:8.4}, doorIn:{x:155.8, z:3.3}, counter:{x:163.4, z:2.9},
+          shelves:[[156.8,-2.7],[159.8,-2.7],[162.8,-2.7],[156.8,.4],[159.8,.4],[162.8,.4]], sw:2.0, bounds:[-5.2,5.2,-3.7,3.8],
+          counterRect:[163.85,1.9,164.95,3.75], owner:DAISO_OWNER, cust:DAISO_CUST, hello:'"행복 천원샵입니다~" 진열대 앞에서 E로 담고, 계산대에서 E로 계산해요'},
+};
+for(const id in SHOPS){ const s = SHOPS[id]; s.id = id; s.labels = []; s.obst = s.shelves.map(([x,z]) => [x-s.sw/2, z-.45, x+s.sw/2, z+.45]).concat([s.counterRect]); }
+const curShop = () => SHOPS[PLAYER.shop || 'conv'];
+const storeItems = () => S.role==='customer' ? curShop().cust : curShop().owner;
+const BUFF_ITEMS = [...DAISO_OWNER, ...DAISO_CUST].filter(it => it.once);
+const buffIcons = () => BUFF_ITEMS.filter(it => S.buff && S.buff[it.id]).map(it => it.ico).join(' ');
+const shelfLabelMat = it => new THREE.MeshLambertMaterial({map:textTex([`${it.ico} ${it.name}`, `${won(it.cost)}원`],{w:512,h:200,font:46,bg:'#fffaf2'})});
 function buildStoreInterior(){
-  const g = group(SX, 0, 0);
+  const s = SHOPS.conv, g = group(SX, 0, 0);
   const fl = plane(9, 7, sMat(tileTex('#f2f2ee','#d6d6d0',18,14)), 0, .01, 0, g); fl.rotation.x = -Math.PI/2; fl.receiveShadow = true;
   box(9, 3.2, .2, M('#f6f4ee'), 0, 1.6, -3.6, g); box(.2, 3.2, 7, M('#f6f4ee'), -4.5, 1.6, 0, g);
   box(9, .4, .22, M('#4fae5c'), 0, 2.9, -3.48, g); box(9, .15, .23, M('#f2994a'), 0, 2.65, -3.48, g);
   plane(5, .5, sMat(textTex('🏪 행복 편의점 24시',{w:768,h:96,bg:'#ffffff',fg:'#2f8f45',border:false,font:60})), 0, 2.2, -3.48, g);
-  W.shelfLabels = [];
-  SHELVES.forEach(([x,z], i) => {
+  s.shelves.forEach(([x,z], i) => {
     const sg = group(x-SX, 0, z, g);
     box(1.6, .12, .8, M('#cfd5d8'), 0, .06, 0, sg); box(1.6, 1.3, .1, M('#cfd5d8'), 0, .7, -.35, sg);
     [.45,.9,1.3].forEach(y => box(1.6, .05, .8, M('#e3e7e9'), 0, y, 0, sg));
     const ownerCol = OWNER_ITEMS[i].col, custCol = CUST_ITEMS[i].col;
     const prods = [];
     [.45,.9,1.3].forEach(y => { for(let j=0;j<5;j++) prods.push(box(.24,.26,.3, M(ownerCol), -.6+j*.3, y+.15, .05, sg)); });
-    const mk = it => new THREE.MeshLambertMaterial({map:textTex([`${it.ico} ${it.name}`, `${won(it.cost)}원`],{w:512,h:200,font:46,bg:'#fffaf2'})});
-    const lab = plane(1.6, .62, mk(OWNER_ITEMS[i]), 0, 1.95, .05, sg);
-    W.shelfLabels.push({lab, prods, own:lab.material, cust:mk(CUST_ITEMS[i]), ownerCol, custCol});
+    const lab = plane(1.6, .62, shelfLabelMat(OWNER_ITEMS[i]), 0, 1.95, .05, sg);
+    s.labels.push({lab, prods, own:lab.material, cust:shelfLabelMat(CUST_ITEMS[i]), ownerCol, custCol});
   });
   box(1.8, 1.0, .8, M('#4fae5c'), 103.5-SX, .5, 1.8, g); box(1.9, .06, .9, M('#f6f4ee'), 103.5-SX, 1.03, 1.8, g);
   box(.4,.25,.3,M('#333'), 103.8-SX, 1.18, 1.8, g);
@@ -1100,19 +1136,182 @@ function buildStoreInterior(){
   box(1.0, 2.2, .1, new THREE.MeshLambertMaterial({color:'#c8ecff', transparent:true, opacity:.5}), 96.4-SX, 1.1, 3.4, g);
   const lt = new THREE.PointLight('#ffffff', .8, 14); lt.position.set(SX, 3, 0); scene.add(lt);
 }
+// 천원샵 진열 상품 모양 (물건마다 생김새가 달라요)
+function prodShape(kind, g, x, y, z, col){
+  const c = M(col), white = M('#ffffff');
+  if(kind==='towel'){ for(let i=0;i<3;i++) box(.32,.06,.24, i%2 ? white : c, x, y+.03+i*.062, z, g); }
+  else if(kind==='basin'){ cyl(.16,.11,.12,c,x,y+.06,z,g,14); cyl(.13,.13,.012,M('#fff6d6'),x,y+.12,z,g,14); cyl(.04,.04,.1,c,x+.15,y+.15,z,g,8); }
+  else if(kind==='roll'){ [.07,.21].forEach(dy => { const r = cyl(.07,.07,.32,c,x,y+dy,z,g,12); r.rotation.z = Math.PI/2; }); }
+  else if(kind==='aroma'){ cyl(.06,.07,.15,c,x,y+.075,z,g,10); [-1,0,1].forEach(i => { const st = cyl(.007,.007,.24,M('#8b5a2b'),x+i*.025,y+.25,z,g,4); st.rotation.z = i*.25; }); }
+  else if(kind==='chime'){ cyl(.08,.08,.03,c,x,y+.36,z,g,12); [-1,0,1].forEach(i => cyl(.012,.012,.18,M('#d9dee0'),x+i*.04,y+.24,z,g,5)); box(.07,.1,.005,white,x,y+.08,z,g); }
+  else if(kind==='duck'){ sph(.09,c,x,y+.09,z,g,12); sph(.06,c,x+.05,y+.2,z,g,10); box(.06,.02,.05,M('#f2994a'),x+.11,y+.2,z,g); sph(.012,M('#1d1d1d'),x+.07,y+.23,z+.05,g,6); }
+  else if(kind==='slipper'){ [-.07,.07].forEach(o => { box(.1,.035,.26,c,x+o,y+.018,z,g); box(.1,.05,.07,white,x+o,y+.055,z-.04,g); }); }
+  else if(kind==='bottle'){ cyl(.055,.06,.2,c,x,y+.1,z,g,10); cyl(.022,.022,.06,white,x,y+.23,z,g,8); box(.06,.07,.005,white,x,y+.1,z+.06,g); }
+  else if(kind==='candy'){ [-1,0,1].forEach(i => { cyl(.008,.008,.2,white,x+i*.08,y+.1,z,g,4); sph(.05, i ? c : M('#f2c94c'), x+i*.08,y+.22,z,g,10); }); }
+  else box(.24,.26,.3,c,x,y+.13,z,g);
+}
+function basketMesh(parent, x, y, z, col='#e85d5d', s=1){
+  const b = group(x, y, z, parent), m = M(col);
+  box(.4*s,.02,.28*s,m,0,.01,0,b);
+  box(.4*s,.2*s,.02,m,0,.1*s,.13*s,b); box(.4*s,.2*s,.02,m,0,.1*s,-.13*s,b);
+  box(.02,.2*s,.28*s,m,.2*s,.1*s,0,b); box(.02,.2*s,.28*s,m,-.2*s,.1*s,0,b);
+  const h = new THREE.Mesh(new THREE.TorusGeometry(.13*s,.012,6,14,Math.PI), M('#333')); h.position.y = .2*s; b.add(h);
+  return b;
+}
+const daisoSignTex = (w=1024, h=150) => canvasTex(w, h, (g) => {
+  g.fillStyle = '#3fb8a5'; g.fillRect(0,0,w,h);
+  g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(h*.6, h/2, h*.36, 0, 7); g.fill();
+  g.fillStyle = '#2f8f80'; g.font = FONT(h*.42); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('₩', h*.6, h/2+3);
+  g.fillStyle = '#ffffff'; g.font = FONT(h*.58); g.fillText('행복 천원샵', w/2+h*.25, h/2+4);
+  g.fillStyle = '#ffd34d'; g.font = FONT(h*.2); g.textAlign = 'right'; g.fillText('생활용품 · 욕실용품', w-24, h-22);
+});
+const priceDotsTex = () => canvasTex(512, 128, (g,w,h) => {
+  g.clearRect(0,0,w,h);
+  [['1,000','#ffd34d'],['2,000','#ff8fb1'],['3,000','#56ccf2'],['5,000','#6fcf97']].forEach(([t,c],i) => {
+    const x = 64 + i*128; g.fillStyle = c; g.beginPath(); g.arc(x, 64, 56, 0, 7); g.fill();
+    g.lineWidth = 5; g.strokeStyle = '#ffffff'; g.stroke();
+    g.fillStyle = '#24323a'; g.font = FONT(34); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, x, 56); g.font = FONT(22); g.fillText('원', x, 88);
+  });
+});
+function buildDaiso(){
+  const cx = -24, cz = 4.7, w = 8, d = 6, h = 4.4, g = group(cx, 0, cz);
+  const fl = plane(w, d, sMat(tileTex('#fbf6ec','#e6dcc8',16,12)), 0, .02, 0, g); fl.rotation.x = -Math.PI/2; fl.receiveShadow = true;
+  const mint = M('#3fb8a5'), mintDk = M('#2f8f80');
+  box(w, h, .2, M('#fffaf0'), 0, h/2, -d/2, g);
+  box(.2, h, d, mint, -w/2, h/2, 0, g); box(.2, h, d, mint, w/2, h/2, 0, g);
+  box(w+.3, .25, d+.3, M('#e3ddd0'), 0, h+.12, 0, g);
+  // 앞면 유리창 + 자동문
+  box(w, .5, .22, mintDk, 0, .25, d/2, g);
+  [-w/2+.06, -.8, .8, w/2-.06].forEach(x => box(.12, h-1.4, .24, mintDk, x, .5+(h-1.4)/2, d/2, g));
+  const glassM = new THREE.MeshLambertMaterial({color:'#dff6ff', transparent:true, opacity:.22, depthWrite:false, side:THREE.DoubleSide});
+  [-2.4, 2.4].forEach(x => { const gp = plane(3.1, h-1.5, glassM, x, .5+(h-1.5)/2, d/2, g); gp.renderOrder = 3; });
+  const door = plane(1.5, h-1.5, new THREE.MeshLambertMaterial({color:'#c8ecff', transparent:true, opacity:.35, depthWrite:false, side:THREE.DoubleSide}), 0, .5+(h-1.5)/2, d/2+.02, g); door.renderOrder = 3;
+  box(.04,.5,.06,M('#c0c0c0'),-.12,1.4,d/2+.06,g); box(.04,.5,.06,M('#c0c0c0'),.12,1.4,d/2+.06,g);
+  plane(3.0, .75, sMat(priceDotsTex(), {transparent:true}), -2.4, 2.45, d/2+.03, g);
+  plane(1.4, .5, sMat(textTex(['오늘의 특가','1,000원~'],{w:256,h:110,bg:'#ffd34d',fg:'#24323a',border:false,font:38})), 2.4, 2.6, d/2+.03, g);
+  // 간판 (밤에 불이 들어와요)
+  box(w+.3, 1.0, .3, mint, 0, h-.1, d/2+.12, g);
+  box(w+.3, .12, .32, M('#ffd34d'), 0, h-.66, d/2+.12, g);
+  const st = daisoSignTex(), signMat = new THREE.MeshLambertMaterial({map:st, emissive:'#ffffff', emissiveMap:st, emissiveIntensity:.12});
+  (W.nightGlow = W.nightGlow || []).push(signMat);
+  plane(w-.3, .86, signMat, 0, h-.1, d/2+.28, g);
+  // 줄무늬 차양
+  for(let i=0;i<10;i++){ const a = box(.8, .06, 1.0, M(i%2 ? '#ffffff' : '#3fb8a5'), -w/2+.4+i*.8, 3.12, d/2+.55, g); a.rotation.x = .28; }
+  // 안쪽 진열대 (유리 너머로 보여요)
+  const cols = ['#ff8fb1','#ffd34d','#56ccf2','#6fcf97','#f2994a','#ffffff','#9b51e0'];
+  [[-2.4,-.6],[2.4,-.6],[-2.4,-1.9],[2.4,-1.9]].forEach(([x,z]) => {
+    box(2.6, 1.5, .5, M('#e9edf0'), x, .75, z, g);
+    [.5,1.0,1.45].forEach(y => { for(let j=0;j<7;j++) box(.26, rnd(.14,.26), .22, M(pick(cols)), x-1.1+j*.37, y+.12, z+.12, g); });
+  });
+  // 가게 앞 할인 매대 2개 + 장바구니 + 입간판
+  [cx-2.8, cx+2.8].forEach((x, n) => {
+    const t = group(x, 0, 8.25);
+    [[-.55,-.25],[.55,-.25],[-.55,.25],[.55,.25]].forEach(([a,b]) => cyl(.03,.03,.6,M('#9aa5aa'),a,.3,b,t,6));
+    box(1.25, .05, .65, M('#c9d2d6'), 0, .6, 0, t);
+    box(1.25, .22, .03, M('#c9d2d6'), 0, .72, .32, t); box(1.25, .22, .03, M('#c9d2d6'), 0, .72, -.32, t);
+    for(let i=0;i<16;i++){ const c = pick(cols); (i%3 ? box(.16,.12,.16,M(c),rnd(-.5,.5),.7,rnd(-.22,.22),t) : sph(.08,M(c),rnd(-.5,.5),.71,rnd(-.22,.22),t,10)); }
+    plane(.9, .3, sMat(textTex(n ? '욕실용품 1,000원' : '골라골라 2,000원',{w:384,h:110,bg:'#ff8fb1',fg:'#ffffff',border:false,font:44})), 0, .98, .33, t);
+    OBST.push([x-.68, 7.9, x+.68, 8.6]);
+  });
+  for(let i=0;i<4;i++) basketMesh(scene, cx+1.3, i*.11, 8.0, i%2 ? '#3fb8a5' : '#ffd34d');
+  const ab = group(cx-1.5, 0, 9.1); ab.rotation.y = .3;
+  [-.12,.12].forEach((o,i) => { const p = box(.6, .9, .03, M('#fffaf0'), 0, .45, o, ab); p.rotation.x = i ? -.25 : .25; });
+  plane(.5, .6, sMat(textTex(['🛍️','천원샵','오늘도','득템!'],{w:160,h:200,bg:'#fffaf2',fg:'#2f8f80',border:'#3fb8a5',font:32})), 0, .5, .16, ab).rotation.x = -.25;
+  tagPick(g, {k:'dshop'});
+  OBST.push([cx-w/2-.2, cz-d/2-.2, cx+w/2+.2, cz+d/2+.15]);
+}
+function buildDaisoInterior(){
+  const s = SHOPS.daiso, g = group(DX, 0, 0);
+  const fl = plane(11, 8, sMat(tileTex('#fbf6ec','#e6dcc8',22,16)), 0, .01, 0, g); fl.rotation.x = -Math.PI/2; fl.receiveShadow = true;
+  const lane = plane(10.4, .45, M('#8fdccd'), 0, .03, 2.15, g); lane.rotation.x = -Math.PI/2;
+  box(11, 3.2, .2, M('#fffaf0'), 0, 1.6, -4, g); box(.2, 3.2, 8, M('#fffaf0'), -5.5, 1.6, 0, g);
+  box(11, .5, .22, M('#3fb8a5'), 0, 2.95, -3.88, g); box(11, .12, .23, M('#ffd34d'), 0, 2.64, -3.88, g);
+  box(.22, .5, 8, M('#3fb8a5'), -5.38, 2.95, 0, g);
+  plane(5.4, .8, sMat(daisoSignTex(1024,150)), 0, 2.15, -3.88, g);
+  const pb = plane(1.8, .45, sMat(priceDotsTex(), {transparent:true}), -5.38, 2.0, 1.6, g); pb.rotation.y = Math.PI/2;
+  const peg = canvasTex(128,128,(c,w,h) => { c.fillStyle = '#efe6d6'; c.fillRect(0,0,w,h); c.fillStyle = '#c9bca4'; for(let y=8;y<h;y+=16) for(let x=8;x<w;x+=16){ c.beginPath(); c.arc(x,y,2.5,0,7); c.fill(); } }, 4, 3);
+  s.shelves.forEach(([x,z], i) => {
+    const sg = group(x-DX, 0, z, g);
+    box(2.0, .12, .8, M('#e9edf0'), 0, .06, 0, sg);
+    box(2.0, 1.55, .08, sMat(peg), 0, .82, -.36, sg);
+    [.45,.9,1.35].forEach(y => { box(2.0, .04, .78, M('#f6f7f8'), 0, y, 0, sg); box(2.0, .07, .02, M('#ffd34d'), 0, y-.01, .4, sg); });
+    const gOwn = group(0,0,0,sg), gCust = group(0,0,0,sg);
+    [[DAISO_OWNER[i], gOwn], [DAISO_CUST[i], gCust]].forEach(([it, gg]) => {
+      [.47,.92,1.37].forEach(y => { for(let j=0;j<4;j++) prodShape(it.kind, gg, -.72+j*.48, y, .05, it.col); });
+      const tag = sMat(textTex(won(it.cost)+'원',{w:256,h:80,font:50,bg:'#ffd34d',border:false}));
+      [.45,.9,1.35].forEach(y => plane(.36, .11, tag, -.7, y-.02, .415, gg));
+    });
+    gCust.visible = false;
+    const lab = plane(1.9, .6, shelfLabelMat(DAISO_OWNER[i]), 0, 1.98, -.3, sg);
+    s.labels.push({lab, own:lab.material, cust:shelfLabelMat(DAISO_CUST[i]), gOwn, gCust});
+  });
+  // 천장에 매달린 코너 안내판
+  [[-2.4,-1.2,'🛁 욕실·목욕용품'],[2.4,-1.2,'🎁 생활·잡화'],[0,1.9,'🧺 장바구니 들고 골라요']].forEach(([x,z,t]) => {
+    const hs = plane(2.2, .42, new THREE.MeshLambertMaterial({map:textTex(t,{w:512,h:100,bg:'#3fb8a5',fg:'#ffffff',border:'#ffd34d',font:52}), side:THREE.DoubleSide}), x, 2.85, z, g);
+    [-.9,.9].forEach(o => cyl(.008,.008,.5,M('#888'),x+o,3.3,z,g,4));
+  });
+  // 계산대 + 직원
+  const ct = group(164.4-DX, 0, 2.85, g);
+  box(1.0, 1.0, 2.0, M('#3fb8a5'), 0, .5, 0, ct); box(1.1, .06, 2.1, M('#fffaf0'), 0, 1.03, 0, ct);
+  box(1.02, .12, 2.02, M('#ffd34d'), 0, .8, 0, ct);
+  box(.32,.22,.3,M('#333'),.1,1.17,.5,ct);
+  const scr = box(.03,.22,.3,new THREE.MeshLambertMaterial({color:'#7fd3ff', emissive:'#4ab8f0', emissiveIntensity:.5}),-.08,1.38,.5,ct);
+  cyl(.13,.13,.22,new THREE.MeshLambertMaterial({color:'#ffffff', transparent:true, opacity:.6}),0,1.17,-.55,ct,12);
+  for(let i=0;i<6;i++) sph(.035,M(pick(['#e85d5d','#ffd34d','#56ccf2','#6fcf97'])),rnd(-.06,.06),1.1+rnd(0,.12),-.55+rnd(-.06,.06),ct,6);
+  basketMesh(ct, 0, 1.06, -.05, '#3fb8a5', .9);
+  const clerk = makePerson({name:'천원샵 직원', skin:'#f3caa4', hair:'#2a1c14', style:'bun', towel:'#3fb8a5', shirt:'#3fb8a5', s:.97});
+  clerk.g.position.set(165.25, 0, 2.85); clerk.g.rotation.y = -Math.PI/2;
+  box(.46,.5,.05,M('#ffd34d'),0,.72,.27,clerk.g);
+  W.npcs.push({p:clerk, type:'owner'});
+  // 구경하는 손님들
+  [[158.3,-1.55,PEOPLE[9],'#ff8fb1'],[161.6,1.6,PEOPLE[4],'#4a90d9']].forEach(([x,z,sp,shirt]) => {
+    const p = makePerson(Object.assign({}, sp, {shirt}));
+    p.g.position.set(x, 0, z); p.g.rotation.y = Math.PI;
+    basketMesh(p.g, .36, .52, .1, '#ffd34d', .8);
+    W.npcs.push({p, type:'browse', ph:Math.random()*6});
+    s.obst.push([x-.32, z-.32, x+.32, z+.32]);
+  });
+  // 입구: 자동문, 발판, 장바구니 쌓아두기
+  box(1.3, 2.3, .1, new THREE.MeshLambertMaterial({color:'#c8ecff', transparent:true, opacity:.5}), 155.8-DX, 1.15, 3.95, g);
+  const mat = plane(1.4, .8, sMat(textTex('어서 오세요',{w:256,h:128,bg:'#2f8f80',fg:'#ffffff',border:false,font:40})), 155.8-DX, .035, 3.3, g); mat.rotation.x = -Math.PI/2;
+  for(let i=0;i<6;i++) basketMesh(g, 154.95-DX, i*.11, 2.3, i%2 ? '#3fb8a5' : '#ffd34d');
+  s.obst.push([154.6,2.0,155.3,2.6]);
+  cyl(.26,.2,.5,M('#c0583b'),165-DX,.25,-3.5,g,12); sph(.42,M('#4f9a5a'),165-DX,.85,-3.5,g,12);
+  s.obst.push([164.5,-3.95,165.5,-3.0]);
+  const lt = new THREE.PointLight('#fff8ee', .85, 16); lt.position.set(DX, 3.2, 0); scene.add(lt);
+}
 function applyStoreRole(){
   const cust = S.role==='customer';
-  (W.shelfLabels||[]).forEach(s => { s.lab.material = cust ? s.cust : s.own; s.prods.forEach(p => p.material = M(cust ? s.custCol : s.ownerCol)); });
+  SHOPS.conv.labels.forEach(s => { s.lab.material = cust ? s.cust : s.own; s.prods.forEach(p => p.material = M(cust ? s.custCol : s.ownerCol)); });
+  SHOPS.daiso.labels.forEach(s => { s.lab.material = cust ? s.cust : s.own; s.gOwn.visible = !cust; s.gCust.visible = cust; });
 }
-function nearStoreDoorOut(){ return !PLAYER.inStore && !PLAYER.inHome && Math.hypot(PLAYER.x-STORE_DOOR_OUT.x, PLAYER.z-STORE_DOOR_OUT.z) < 1.8; }
-function nearStoreDoorIn(){ return PLAYER.inStore && Math.hypot(PLAYER.x-STORE_DOOR_IN.x, PLAYER.z-STORE_DOOR_IN.z) < 1.3; }
-function nearCounter(){ return PLAYER.inStore && Math.hypot(PLAYER.x-STORE_COUNTER.x, PLAYER.z-STORE_COUNTER.z) < 1.3; }
-function nearShelf(){ if(!PLAYER.inStore) return -1; let b = -1, bd = 1.0; SHELVES.forEach(([x,z],i) => { const d = rectDist(PLAYER.x, PLAYER.z, [x-.85,z-.45,x+.85,z+.45]); if(d < bd){ bd = d; b = i; } }); return b; }
-function enterStore(){ PLAYER.inStore = true; S.basket = []; PLAYER.x = STORE_DOOR_IN.x+.5; PLAYER.z = STORE_DOOR_IN.z-.5; cam.target.set(SX, 0, 0); PLAYER.follow = true; beep(880,.08,'sine',.04); setTimeout(()=>beep(1175,.12,'sine',.04),90); toast('"어서 오세요~" 진열대 앞에서 E로 담고, 계산대에서 E로 계산해요'); }
-function exitStore(){ if(S.basket.length) toast('계산 안 한 물건은 두고 나왔어요'); S.basket = []; PLAYER.inStore = false; PLAYER.x = STORE_DOOR_OUT.x; PLAYER.z = STORE_DOOR_OUT.z+.4; cam.target.set(PLAYER.x, 0, PLAYER.z); PLAYER.follow = true; }
+function shopDoorNear(){
+  if(PLAYER.inStore || PLAYER.inHome || PLAYER.inPrem) return null;
+  for(const id in SHOPS){ const d = SHOPS[id].doorOut; if(Math.hypot(PLAYER.x-d.x, PLAYER.z-d.z) < 1.8) return id; }
+  return null;
+}
+function nearStoreDoorIn(){ const d = curShop().doorIn; return PLAYER.inStore && Math.hypot(PLAYER.x-d.x, PLAYER.z-d.z) < 1.3; }
+function nearCounter(){ const c = curShop().counter; return PLAYER.inStore && Math.hypot(PLAYER.x-c.x, PLAYER.z-c.z) < 1.3; }
+function nearShelf(){
+  if(!PLAYER.inStore) return -1;
+  const s = curShop(); let b = -1, bd = 1.0;
+  s.shelves.forEach(([x,z],i) => { const d = rectDist(PLAYER.x, PLAYER.z, [x-s.sw/2, z-.45, x+s.sw/2, z+.45]); if(d < bd){ bd = d; b = i; } });
+  return b;
+}
+function enterStore(id='conv'){
+  PLAYER.shop = id; const s = curShop();
+  PLAYER.inStore = true; S.basket = []; PLAYER.x = s.doorIn.x+.5; PLAYER.z = s.doorIn.z-.5; cam.target.set(s.X, 0, 0); PLAYER.follow = true;
+  beep(880,.08,'sine',.04); setTimeout(()=>beep(1175,.12,'sine',.04),90); toast(s.hello);
+}
+function exitStore(){
+  const s = curShop();
+  if(S.basket.length) toast('계산 안 한 물건은 두고 나왔어요');
+  S.basket = []; PLAYER.inStore = false; PLAYER.x = s.doorOut.x; PLAYER.z = s.doorOut.z+.4; cam.target.set(PLAYER.x, 0, PLAYER.z); PLAYER.follow = true;
+}
 function addToBasket(i){
   const it = storeItems()[i];
   if(it.ok && !it.ok()) return toast(it.why || '지금은 살 수 없어요');
+  if(it.once && (S.buff[it.id] || S.basket.includes(i))) return toast(`${it.ico} ${it.name}은(는) 하루에 하나면 충분해요`);
   if(S.basket.length >= 12) return toast('장바구니가 꽉 찼어요');
   S.basket.push(i); beep(700,.05,'triangle',.04); pop(PLAYER.tag, `🧺 ${it.ico} 담기`);
 }
@@ -1122,8 +1321,10 @@ function payBasket(){
   const wallet = S.role==='customer' ? 'wallet' : 'money';
   if(S[wallet] < total) return toast(`돈이 모자라요 💸 (합계 ${won(total)}원)`);
   S[wallet] -= total; if(S.ds && S.role!=='customer') S.ds.cost += total;
-  S.basket.forEach(i => items[i].buy()); S.basket = [];
-  sfx.coin(); toast(`🧾 결제 완료! ${won(total)}원 · "감사합니다~"`); updateHUD();
+  const got = [];
+  S.basket.forEach(i => { const it = items[i]; if(it.once){ S.buff[it.id] = true; got.push(it.ico); } if(it.buy) it.buy(); });
+  S.basket = [];
+  sfx.coin(); toast(`🧾 결제 완료! ${won(total)}원 · "감사합니다~"${got.length ? ' · 오늘 효과 ' + got.join('') : ''}`); updateHUD();
 }
 function renderBasket(){
   const el = $('#basket');
@@ -1132,8 +1333,106 @@ function renderBasket(){
   S.basket.forEach(i => cnt[i] = (cnt[i]||0)+1);
   const total = S.basket.reduce((a,i) => a + items[i].cost, 0);
   el.style.display = '';
-  el.innerHTML = `<b>🧺 장바구니</b>` + (S.basket.length ? Object.keys(cnt).map(i => `<div>${items[i].ico} ${items[i].name} ×${cnt[i]}</div>`).join('') : '<div style="opacity:.6">비어 있어요</div>') +
+  el.innerHTML = `<b>🧺 ${curShop().name} 장바구니</b>` + (S.basket.length ? Object.keys(cnt).map(i => `<div>${items[i].ico} ${items[i].name} ×${cnt[i]}</div>`).join('') : '<div style="opacity:.6">비어 있어요</div>') +
     `<div class="tot">합계 ${won(total)}원 · 가진 돈 ${won(S.role==='customer' ? S.wallet : S.money)}원</div>`;
+}
+let buffsHTML = null;
+function renderBuffs(){
+  const on = BUFF_ITEMS.filter(it => S.buff && S.buff[it.id]);
+  const html = on.length ? '🛍️ 오늘 효과 ' + on.map(it => `<span title="${it.name}: ${it.desc}">${it.ico}</span>`).join(' ') : '';
+  if(html === buffsHTML) return;
+  buffsHTML = html; const el = $('#buffs'); el.innerHTML = html; el.style.display = html ? '' : 'none';
+}
+function buildPlayerExtras(){
+  const p = PLAYER.p;
+  PLAYER.basket = basketMesh(p.g, .36, .52, .12, '#3fb8a5', .8); PLAYER.basket.visible = false;
+  const sh = group(0, 0, 0, p.head), tw = M('#ffc0d6');
+  const capM = mesh(new THREE.SphereGeometry(.295,18,10,0,Math.PI*2,0,Math.PI/2), tw, 0,.02,-.02, sh); capM.rotation.x = -.35;
+  [-1,1].forEach(sg => { const r = cyl(.1,.1,.2,tw, sg*.25,.12,-.02, sh, 12); r.rotation.z = Math.PI/2; });
+  sh.visible = false; PLAYER.sheep = sh;
+}
+
+/* ======================= 행복아파트 주차장 ======================= */
+const PARK = {x0:32.2, x1:41.8, z0:.4, z1:7.3, stalls:[33.4,35.8,38.2,40.6], gate:{x:39.5, z:7.3}};
+function buildParking(){
+  const P = PARK, w = P.x1-P.x0, d = P.z1-P.z0, cx = (P.x0+P.x1)/2, cz = (P.z0+P.z1)/2;
+  const tex = canvasTex(960, 690, (g,W2,H) => {
+    g.fillStyle = '#50565c'; g.fillRect(0,0,W2,H);
+    for(let i=0;i<2500;i++){ g.fillStyle = Math.random()<.5 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.09)'; g.fillRect(Math.random()*W2, Math.random()*H, 3, 3); }
+    const sx = W2/w, sz = H/d;
+    g.fillStyle = 'rgba(80,200,120,.5)'; g.fillRect(3*2.4*sx+5, 0, 2.4*sx-10, 3.0*sz);
+    g.strokeStyle = '#f4f4f4'; g.lineWidth = 9;
+    for(let i=0;i<=4;i++){ const x = Math.min(W2-5, Math.max(5, i*2.4*sx)); g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 3.0*sz); g.stroke(); }
+    g.beginPath(); g.moveTo(0, 3.0*sz); g.lineTo(W2, 3.0*sz); g.setLineDash([30,22]); g.stroke(); g.setLineDash([]);
+    g.fillStyle = '#f4f4f4'; g.font = FONT(64); g.textAlign = 'center'; g.textBaseline = 'middle';
+    for(let i=0;i<4;i++) g.fillText(i===3 ? '⚡ EV' : String(i+1), (i*2.4+1.2)*sx, 2.45*sz);
+    g.fillStyle = 'rgba(255,255,255,.9)'; g.font = FONT(120); g.fillText('P', 1.3*sx, 5.15*sz);
+    g.fillStyle = '#f2c94c';
+    [[4.2,5.15],[6.6,5.15]].forEach(([ax,az]) => { const x = ax*sx, y = az*sz; g.beginPath(); g.moveTo(x-60,y); g.lineTo(x-10,y-34); g.lineTo(x-10,y-14); g.lineTo(x+50,y-14); g.lineTo(x+50,y+14); g.lineTo(x-10,y+14); g.lineTo(x-10,y+34); g.closePath(); g.fill(); });
+  }, 1, 1);
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  const lot = plane(w, d, sMat(tex), cx, .006, cz); lot.rotation.x = -Math.PI/2; lot.receiveShadow = true;
+  // 뒤쪽 산울타리·펜스, 오른쪽 펜스
+  box(w+.3, .8, .5, M('#4e9a59'), cx, .4, P.z0-.45);
+  for(let i=0;i<9;i++) sph(.32, M(i%2 ? '#5aa864' : '#6dbb72'), P.x0+.5+i*1.1, .85, P.z0-.45, scene, 10);
+  const fenceM = M('#e9eef0');
+  for(let z=P.z0; z<=P.z1+.01; z+=1.15) box(.08, 1.1, .08, fenceM, P.x1+.12, .55, Math.min(z, P.z1));
+  [.4,.9].forEach(y => box(.05, .07, d, fenceM, P.x1+.12, y, cz));
+  OBST.push([P.x0-.1, P.z0-.75, P.x1+.25, P.z0-.05], [P.x1, P.z0-.1, P.x1+.25, P.z1]);
+  // 앞쪽 화단 (입구는 오른쪽에만)
+  box(37.0-P.x0, .45, .5, M('#b8b0a0'), (P.x0+37.0)/2, .22, 7.6);
+  for(let i=0;i<5;i++) sph(.3, M(pick(['#5aa864','#4e9a59','#6dbb72'])), P.x0+.5+i*.95, .62, 7.6, scene, 10);
+  [33.3, 35.1].forEach(x => { sph(.07, M('#ff8fb1'), x, .78, 7.5, scene, 6); sph(.07, M('#ffd34d'), x+.4, .76, 7.65, scene, 6); });
+  OBST.push([P.x0, 7.3, 37.05, 7.9]);
+  // 바퀴 멈춤턱
+  P.stalls.forEach(x => { box(1.3, .12, .18, M('#d9d2c4'), x, .06, P.z0+.5); box(.3, .125, .185, M('#f2c94c'), x-.35, .06, P.z0+.5); box(.3, .125, .185, M('#f2c94c'), x+.35, .06, P.z0+.5); });
+  // 이웃 차 2대 (1번·3번 칸)
+  [[P.stalls[0], '#f4f4f4'], [P.stalls[2], '#3b3f45']].forEach(([x, col]) => { car(x, 2.1, col, Math.PI/2); OBST.push([x-.62, .95, x+.62, 3.25]); });
+  // 전기차 충전기 (4번 칸)
+  const ev = group(P.stalls[3]+.95, 0, P.z0+.45);
+  box(.38, 1.3, .26, M('#f4f6f7'), 0, .65, 0, ev); box(.38, .15, .3, M('#2fa36b'), 0, 1.35, 0, ev);
+  box(.24, .18, .02, new THREE.MeshLambertMaterial({color:'#7fffb0', emissive:'#2fd07a', emissiveIntensity:.7}), 0, 1.0, .14, ev);
+  const cable = new THREE.Mesh(new THREE.TorusGeometry(.14,.025,6,16), M('#222')); cable.position.set(.2, .6, .1); cable.rotation.y = Math.PI/2; ev.add(cable);
+  OBST.push([P.stalls[3]+.7, P.z0+.25, P.stalls[3]+1.2, P.z0+.65]);
+  // 주차 안내 기둥 + 간판
+  cyl(.06, .06, 3.2, M('#5b6670'), 37.25, 1.6, 7.25, scene, 8);
+  box(.9, .9, .08, M('#2b6fd9'), 37.25, 2.9, 7.3);
+  plane(.8, .8, sMat(textTex('P',{w:128,h:128,bg:'#2b6fd9',fg:'#ffffff',border:'#ffffff',font:96})), 37.25, 2.9, 7.35);
+  plane(1.5, .55, sMat(textTex(['행복아파트 주차장','입주민·방문객 환영'],{w:384,h:140,bg:'#fffaf2',fg:'#2b5f86',border:'#2b6fd9',font:34})), 37.25, 2.05, 7.33);
+  // 관리실 부스 + 차단기
+  const bt = group(42.75, 0, 6.6);
+  box(1.2, 2.2, 1.2, M('#fffaf0'), 0, 1.1, 0, bt); box(1.45, .14, 1.45, M('#2b6fd9'), 0, 2.27, 0, bt);
+  box(.9, .7, .03, new THREE.MeshLambertMaterial({color:'#cfefff', transparent:true, opacity:.7}), 0, 1.45, .61, bt);
+  box(.03, .7, .9, new THREE.MeshLambertMaterial({color:'#cfefff', transparent:true, opacity:.7}), -.61, 1.45, 0, bt);
+  plane(.9, .25, sMat(textTex('관리실',{w:256,h:72,bg:'#2b6fd9',fg:'#ffffff',border:false,font:48})), 0, 2.0, .62, bt);
+  const guard = makePerson({name:'경비 아저씨', skin:'#e6b48c', hair:'#bdbdbd', style:'short', towel:'#3b5b92', shirt:'#3b5b92', s:1, glasses:1});
+  guard.g.position.set(42.75, 0, 6.5); guard.g.rotation.y = -Math.PI/2; W.npcs.push({p:guard, type:'owner'});
+  OBST.push([42.1, 5.95, 43.4, 7.25]);
+  box(.3, .9, .3, M('#f2c94c'), 41.7, .45, 7.3);
+  const arm = group(41.7, .85, 7.3);
+  const armTex = canvasTex(256, 16, (g,w2,h2) => { for(let i=0;i<8;i++){ g.fillStyle = i%2 ? '#ffffff' : '#e0302a'; g.fillRect(i*32,0,32,h2); } });
+  box(4.3, .09, .09, sMat(armTex), -2.15, 0, 0, arm);
+  W.gate = arm; W.gateA = 0; W.gateOpen = false;
+  streetLight(32.6, .9);
+  tagPick(lot, {k:'park'});
+}
+function updateParkingGate(dt){
+  if(!W.gate) return;
+  const px = DRIVE.active ? DRIVE.x : PLAYER.x, pz = DRIVE.active ? DRIVE.z : PLAYER.z;
+  const open = !PLAYER.inStore && !PLAYER.inHome && !PLAYER.inPrem && Math.hypot(px - PARK.gate.x, pz - PARK.gate.z) < (DRIVE.active ? 6.5 : 3);
+  if(open !== W.gateOpen){ W.gateOpen = open; if(open) beep(660,.08,'square',.025); }
+  W.gateA += ((open ? -1.45 : 0) - W.gateA) * Math.min(1, dt*3.5);
+  W.gate.rotation.z = W.gateA;
+}
+function checkParked(){
+  const i = PARK.stalls.findIndex(x => Math.abs(DRIVE.x - x) < 1.0 && DRIVE.z > PARK.z0 && DRIVE.z < PARK.z0 + 3.4);
+  if(i < 0) return;
+  sfx.bell(); toast(i===3 ? '🅿️ 주차 완료! ⚡ 전기차 칸에서 충전 중…' : `🅿️ 주차 완료! 행복아파트 주차장 ${i+1}번 칸`);
+}
+function followSun(){ // 그림자가 카메라가 보는 곳을 따라다녀요 (실내·주차장도 그림자 생김)
+  if(!W.sun) return;
+  const t = cam.target, sx = Math.round(t.x/2)*2, sz = Math.round(t.z/2)*2;
+  W.sun.position.set(sx+7, 18, sz+11); W.sun.target.position.set(sx, 0, sz); W.sun.target.updateMatrixWorld();
 }
 
 /* ======================= 사장 / 손님 모드 ======================= */
@@ -1172,6 +1471,8 @@ function finishMe(k, i){
   const off = tempOff(k);
   if(off > 0){ gain *= .5; note = ' 🥵 너무 뜨거웠어요'; } else if(off < 0){ gain *= .5; note = ' 🥶 너무 차가웠어요'; }
   if(f.clean < 50){ gain *= .7; note += ' 🤢 좀 더러웠어요'; }
+  const bonus = ({scrub:S.buff.cTowel ? 10 : 0, warm:S.buff.duck ? 6 : 0, sauna:S.buff.sheep ? 6 : 0})[k] || 0;
+  if(bonus){ gain += bonus; note += ` ✨아이템 +${bonus}`; }
   S.fresh = Math.min(100, S.fresh + gain); S.course[k] = true;
   f.slots[i] = null; PLAYER.using = null;
   const e = entryPts(k, SLOTS[k][i])[0]; PLAYER.x = e.x; PLAYER.z = e.z;
@@ -1206,7 +1507,7 @@ function endDayCustomer(){
     <div class="sumrow"><span>목욕 코스</span><b>${done}/5 완료</b></div>
     <div class="sumrow total"><span>😊 개운함</span><b>${Math.round(S.fresh)}점</b></div>
     <div class="sumrow"><span>남은 돈</span><b>${won(S.wallet)}원</b></div>`;
-  S.freshSum = (S.freshSum||0) + S.fresh;
+  S.freshSum = (S.freshSum||0) + S.fresh; S.buff = {};
   if(S.day >= DAYS){
     const avg = Math.round(S.freshSum / DAYS);
     return showModal(html + `<div class="big-sign">${avg>=80?'🏆 목욕 달인':avg>=50?'♨️ 목욕 좋아하는 사람':'🫧 목욕 초보'}</div><p style="text-align:center">7일 평균 개운함 ${avg}점</p>`, [['🔁 다시 하기', ()=>{ newGame(); showTitle(); }, 'primary']]);
@@ -1340,6 +1641,7 @@ function updateWeather(dt){
   W.lamps.forEach(l => l.intensity = W.night*1.3);
   W.hallLight.intensity = W.night*.7;
   if(W.aptWin) W.aptWin.emissiveIntensity = W.night*.9;
+  (W.nightGlow||[]).forEach(m => m.emissiveIntensity = .12 + W.night*.9);
   updatePremFx(dt);
   if(W.homeWin) W.homeWin.color.set(W.night > .5 ? '#1a2342' : w.sky);
   fx.rain.visible = w.fx==='rain'; fx.snow.visible = w.fx==='snow';
@@ -1549,13 +1851,14 @@ function placeEl(el, v){
   el.style.visibility = '';
   el.style.transform = `translate(${q.x}px,${q.y}px) translate(-50%,-100%)`;
 }
-const PLATE_POS = {warm:[-4,1.35,-2.3], cold:[1.2,1.35,-2.3], sauna:[6.6,3.25,-3.3], scrub:[6.7,1.6,.75], milk:[4.45,2.75,2.7], shop:[-15,5.1,7.7], home:[24,3.4,5.2], prem:[30.5,5.4,-2.6]};
+const PLATE_POS = {warm:[-4,1.35,-2.3], cold:[1.2,1.35,-2.3], sauna:[6.6,3.25,-3.3], scrub:[6.7,1.6,.75], milk:[4.45,2.75,2.7], shop:[-15,5.1,7.7], home:[24,3.4,5.2], prem:[30.5,5.4,-2.6], dshop:[-24,5.5,8.0], park:[36.6,1.6,4.6]};
+const LABEL_KEYS = ['warm','cold','sauna','scrub','milk','shop','dshop','home','park','prem'];
 const BENCH_ANCHOR = [-3,1.9,2.75];
 
 /* ======================= 화면/패널 ======================= */
 function buildUI(){
   const labels = $('#labels'); labels.innerHTML = '';
-  for(const k of ['warm','cold','sauna','scrub','milk','shop','home','prem']){
+  for(const k of LABEL_KEYS){
     const pl = document.createElement('div'); pl.className = 'plate3d';
     pl.addEventListener('click', () => clickFacility(k));
     labels.appendChild(pl);
@@ -1596,7 +1899,7 @@ function newGame(){
        fac:{}, queue:[], people:[], upg:{}, spawnT:1.5, nextId:1, cleanT:0,
        milk:{stock:6, max:6}, total:{served:0, revenue:0, angry:0}, ds:null,
        weather:'sunny', nextWeather:'sunny', eggs:0, umbrella:false,
-       role:'owner', wallet:0, fresh:0, course:{}, basket:[], premium:false};
+       role:'owner', wallet:0, fresh:0, course:{}, basket:[], premium:false, buff:{}};
   PLAYER.using = null; PLAYER.inStore = false; PLAYER.inHome = false; PLAYER.inPrem = false; PLAYER.jacuzzi = 0;
   for(const k in FAC) S.fac[k] = {cap:FAC[k].cap, temp:FAC[k].temp ?? null, clean:100, slots:Array(FAC[k].cap).fill(null)};
   UPG.forEach(u => S.upg[u.id] = 0);
@@ -1687,6 +1990,8 @@ function clickCustomer(c){
 }
 function clickFacility(k){
   if(k==='shop') return toast('🏪 편의점 문 앞에서 E를 눌러 들어가서 직접 골라요');
+  if(k==='dshop') return toast('🛍️ 천원샵 문 앞에서 E를 눌러 들어가서 직접 골라요');
+  if(k==='park') return toast('🅿️ 행복아파트 주차장이에요. 차를 몰고 와서 빈 칸에 세워 봐요');
   if(S.role==='customer' && k!=='home') return toast('가까이 가서 E를 눌러 이용해요');
   if(k==='prem') return toast('🏙️ 프리미엄 타워 문 앞(레드카펫)에서 E를 눌러요');
   if(k==='home') return toast('🏠 우리 집(행복아파트)이에요. 문 앞에서 E를 눌러 들어가요');
@@ -1737,9 +2042,10 @@ function tempOff(k){
 function finishService(k, i){
   const f = S.fac[k], c = f.slots[i].c;
   f.slots[i] = null;
-  f.clean = Math.max(0, f.clean - (k==='scrub'?12:8));
+  f.clean = Math.max(0, f.clean - (k==='scrub'?12:8) * (S.buff.basin ? .5 : 1));
   let pay = FAC[k].pay;
   if(c.type==='vip') pay *= 3;
+  if(k==='scrub' && S.buff.scrubTowel) pay += 3000; // 천원샵 때수건
   if(c.type==='jinsang' && Math.random() < .3){ pay = Math.round(pay/2); setTimeout(() => pop(F[k].plate, '👿 반값으로 해줘!', true), 200); }
   earn(pay, F[k].plate);
   if(k==='sauna' && S.eggs > 0){ S.eggs--; setTimeout(() => earn(1500, F.sauna.plate), 300); S.ds.eggs = (S.ds.eggs||0) + 1; }
@@ -1762,6 +2068,7 @@ function leaveWalk(c, text){
   sendTo(c, {x:-8.85, z:LOCKER_Z[i], pose:'stand', rotY:-Math.PI/2}, null);
 }
 function depart(c, extra){
+  if(S.buff.towel) c.mood = Math.min(100, c.mood + 10); // 천원샵 뽀송 수건
   const stars = clamp(1 + c.mood/25, 1, 5);
   const wgt = c.type==='vip' ? .22 : .12;
   S.rep = S.rep*(1-wgt) + stars*wgt;
@@ -1820,7 +2127,7 @@ function tick(dt){
       const pick2 = s.c.type==='vip' ? 1.7 : 1;  // VIP는 까다로워요
       if(off>0) s.c.mood -= off * 1.6 * dt * pick2;
       if(f.clean < (s.c.type==='vip' ? 80 : 60)) s.c.mood -= ((s.c.type==='vip' ? 80 : 60) - f.clean) * .035 * dt * pick2;
-      f.clean = Math.max(0, f.clean - .22*dt * (s.c.type==='jinsang' ? 3 : 1)); // 진상은 엄청 어지럽혀요
+      f.clean = Math.max(0, f.clean - .22*dt * (s.c.type==='jinsang' ? 3 : 1) * (S.buff.basin ? .5 : 1)); // 진상은 엄청 어지럽혀요
       if(s.t >= d.time) finishService(k, i);
     });
   }
@@ -1835,12 +2142,12 @@ function tick(dt){
   if(S.role==='customer') autoManage();
   for(const c of [...S.queue]){
     if(c.type==='jinsang'){
-      c.yellT -= dt;
+      c.yellT -= dt * (S.buff.aroma && !c.yelling ? .5 : 1);
       if(!c.yelling && c.yellT <= 0){ c.yelling = true; c.tWish.textContent = wishText(c); sfx.bad(); pop(c.tag, '👿 왜 이렇게 느려!!', true); c.yellT = 2; }
       if(c.yelling && c.yellT <= 0){ c.yellT = 2; S.queue.forEach(o => { if(o!==c){ o.patience -= 1.5; } }); pop(F.bench, '😣 시끄러워…', true); }
     }
     if(ADMIN.noPatience){ c.patience = c.maxP; continue; }
-    c.patience -= dt;
+    c.patience -= dt * (S.buff.mat ? .75 : 1);
     if(c.patience/c.maxP < .5) c.mood -= 1.3*dt;
     if(c.patience <= 0) angryLeave(c);
   }
@@ -1871,10 +2178,13 @@ function animate(dt){
       if(busyBed){ p.armL.rotation.x = -1.2 + Math.sin(T*12)*.35; p.armR.rotation.x = -1.2 - Math.sin(T*12)*.35; }
     } else if(n.type==='wash'){
       setPose(p, 'sit', dt); p.armR.rotation.x = -2.4 + Math.sin(T*6)*.5; p.armL.rotation.x = -1.0;
+    } else if(n.type==='browse'){
+      setPose(p, 'stand', dt); const r = Math.sin(T*.7 + n.ph); p.head.rotation.y = Math.sin(T*.45 + n.ph)*.5; p.armR.rotation.x = r > .55 ? -1.7 : 0;
     } else if(n.type==='owner'){
       setPose(p, 'stand', dt); p.head.rotation.y = Math.sin(T*.7)*.4; p.armR.rotation.z = Math.sin(T*1.3)>0.92 ? .9 : 0;
     }
   }
+  updateParkingGate(dt);
 }
 function render3D(dt){
   // 물 색, 물결
@@ -1917,11 +2227,13 @@ function render3D(dt){
 }
 const headV = window.THREE ? new THREE.Vector3() : null;
 function renderLabels(){
-  for(const k of ['warm','cold','sauna','scrub','milk','shop','home','prem']){
+  for(const k of LABEL_KEYS){
     const pl = F[k].plate;
     if(k==='prem') pl.innerHTML = S.premium ? '🏙️ 내 펜트하우스' : `🏙️ 프리미엄 타워 <small>${won(premPrice())}원</small>`;
     else if(k==='home') pl.innerHTML = S.phase==='night' ? '🏠 우리 집 <small>여기서 자요!</small>' : '🏠 우리 집';
     else if(k==='shop') pl.innerHTML = `🏪 편의점 <small>장보기</small>`;
+    else if(k==='dshop') pl.innerHTML = `🛍️ 천원샵 <small>생활용품</small>`;
+    else if(k==='park') pl.innerHTML = `🅿️ 주차장`;
     else if(k==='milk') pl.innerHTML = `🍌🥛 바나나우유 <small>${S.milk.stock}병</small>`;
     else { const f = S.fac[k]; pl.innerHTML = `${FAC[k].icon} ${FAC[k].name} <small>${f.slots.filter(Boolean).length}/${f.cap}</small>`; }
     placeEl(pl, F[k].pos);
@@ -1954,7 +2266,7 @@ function renderPanel(){
     R.clean.style.background = f.clean>60 ? '#6cc070' : f.clean>30 ? '#e8b93a' : '#d9483b';
     if(d.range){ R.mark.style.left = (f.temp/50*100) + '%'; R.tt.textContent = f.temp.toFixed(1) + '℃'; R.tt.classList.toggle('bad', tempOff(k)!==0); }
   }
-  renderBasket(); renderCourse();
+  renderBasket(); renderCourse(); renderBuffs();
   $('#milkN').textContent = S.milk.stock; $('#eggN').textContent = S.eggs;
   const h = 6 + Math.min(1, S.time/DAY_LEN)*16;
   $('#clock').textContent = String(Math.floor(h)).padStart(2,'0') + ':' + String(Math.floor((h%1)*6)*10).padStart(2,'0');
@@ -1983,6 +2295,7 @@ function loop(ts){
     render3D(dt);
   }
   updateCamera();
+  followSun();
   renderer.render(scene, camera);
   renderLabels(); renderPanel();
   requestAnimationFrame(loop);
@@ -2026,10 +2339,12 @@ function endDay(){
     <div class="sumrow"><span>가스·수도요금</span><b>-${won(util)}원</b></div>
     ${wage?`<div class="sumrow"><span>직원 일당</span><b>-${won(wage)}원</b></div>`:''}
     ${S.ds.eggs?`<div class="sumrow"><span>맥반석 계란 판매</span><b>${S.ds.eggs}알</b></div>`:''}
-    ${S.ds.cost?`<div class="sumrow"><span>편의점 장보기</span><b>-${won(S.ds.cost)}원</b></div>`:''}
+    ${S.ds.cost?`<div class="sumrow"><span>가게 장보기</span><b>-${won(S.ds.cost)}원</b></div>`:''}
     <div class="sumrow total"><span>오늘 순이익</span><b>${profit>=0?'+':''}${won(profit)}원</b></div>
+    ${buffIcons() ? `<div class="sumrow"><span>🛍️ 오늘 쓴 천원샵 아이템</span><b>${buffIcons()}</b></div>` : ''}
     <div class="sumrow"><span>동네 평판</span><b>⭐ ${S.rep.toFixed(2)} · 내일 손님 ${repSpawnMul() < .95 ? '많이 와요 📈' : repSpawnMul() > 1.05 ? '줄어요 📉' : '보통이에요'}</b></div>
     ${S.day < DAYS ? `<div class="sumrow"><span>📺 내일 날씨 예보</span><b>${WEATHER[S.nextWeather].icon} ${WEATHER[S.nextWeather].name} · ${WEATHER[S.nextWeather].desc}</b></div>` : ''}`;
+  S.buff = {};
   const restart = ['다시 시작', ()=>{ newGame(); showTitle(); }, 'primary'];
   if(S.money < 0) return showModal(html + `<p style="text-align:center;margin-top:12px">💸 가게 통장이 바닥났어요… 행복탕이 문을 닫습니다.</p>`, [restart]);
   if(S.rep < 1.4) return showModal(html + `<p style="text-align:center;margin-top:12px">😢 평판이 너무 나빠져서 손님이 끊겼어요…</p>`, [restart]);
@@ -2116,6 +2431,8 @@ function showTitle(){
       <li><b>👿 진상</b>: 인내심이 짧고 시설을 3배로 어지럽혀요. 💢 소리 지르면 다른 손님 인내심이 깎이니 얼른 눌러서(또는 E) 진정시키세요. 가끔 반값을 요구해요.</li>
       <li><b>🧖 손님 모드</b>: 지갑 50,000원으로 온탕·냉탕·사우나·때밀이·바나나우유 코스를 직접 즐겨요. 시설 가까이에서 E! 개운함 점수를 높이면 이겨요.</li>
       <li><b>🏪 편의점</b>: 문 앞에서 E로 들어가 진열대에서 E로 장바구니에 담고, 계산대에서 E로 계산해요.</li>
+      <li><b>🛍️ 천원샵</b>: 편의점 왼쪽! 사장님은 때수건·대야·미끄럼 매트 같은 <b>영업 도우미</b>, 손님은 양머리 수건·목욕 오리 같은 <b>개운함 아이템</b>이 진열돼요. 효과는 그날 하루 (밤에 사면 다음 날까지).</li>
+      <li><b>🅿️ 주차장</b>: 행복아파트 오른쪽. 차로 다가가면 차단기가 올라가요. 빈 칸에 세우고 내리면 주차 완료!</li>
       <li><b>🏙️ 프리미엄 타워</b>: 펜트하우스를 살 수 있어요 (사장 100만 원 · 손님 특가 15만 원). 자쿠지와 킹 침대! 여기서 자면 프리미엄 숙면 보너스.</li>
       <li><b>🏠 우리 집</b>: 영업이 끝나면 밤이 돼요. 오른쪽 행복아파트 문 앞에서 E로 들어가 침대에서 E를 누르면 자고, 다음 날 아침에 일어나요.</li>
       <li><b>🚗 내 차</b>: 앞 도로의 초록 차 근처에서 E로 타고, WASD로 운전, 다시 E로 내려요. H는 경적!</li>
@@ -2232,13 +2549,15 @@ function init(){
   sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, {left:-24, right:24, top:22, bottom:-22, near:1, far:70});
   sun.shadow.bias = -.0008;
-  scene.add(sun); W.sun = sun;
+  scene.add(sun); scene.add(sun.target); W.sun = sun;
   scene.add(new THREE.AmbientLight('#ffffff', .18));
   buildWorld();
   buildWeatherFx();
   buildPlayer();
   buildMyCar();
   buildStoreInterior();
+  buildDaisoInterior();
+  buildPlayerExtras();
   buildPremium();
   newGame();
   buildUI();

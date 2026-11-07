@@ -5,7 +5,8 @@
 ## 프로젝트 한눈에 보기
 
 - **장르**: 3D 동네 목욕탕 경영 + 생활 시뮬레이션 (한국어 UI)
-- **파일**: `index.html` 하나에 HTML·CSS·JS가 모두 들어 있음 (약 2,300줄). 빌드 과정 없음.
+- **파일**: `index.html` 하나에 HTML·CSS·JS가 모두 들어 있음 (약 2,500줄). 빌드 과정 없음.
+- **저장소**: `asv26_11/` 폴더가 GitHub `seowls734/asv26_11` 저장소. 업데이트할 때마다 `index.html`·`CLAUDE.md`를 복사해 main에 커밋·푸시.
 - **실행**: 브라우저로 `index.html`을 열면 끝. 3D 엔진 **Three.js r128**을 CDN에서 불러오므로 **인터넷 연결이 필요**함.
   - `https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js` (전역 `THREE`)
   - 폰트: Google Fonts `Jua`, `Gowun Dodum`
@@ -58,7 +59,10 @@
 10. **하루 흐름**: `startDay` → (시간 끝) `startClosing` → `endDay`(정산) → `goNight` → 침대에서 `sleep()` → 아침 `showShop()` → 다음 `startDay`. 손님 모드는 `endDayCustomer()`.
 11. **플레이어**: `PLAYER`(`x, z, inHome, inStore, inPrem, using, jacuzzi`), `updatePlayer`, `collide(P, R, extra, room)`, `interactMain`, `nearestTargets`
 12. **운전**: `DRIVE`, `buildMyCar`, `enterCar/exitCar/updateCar`, `CAR_BLOCK`
-13. **편의점 내부**: `SHELVES`, `OWNER_ITEMS`/`CUST_ITEMS`, `S.basket`, `addToBasket`, `payBasket`
+    - **주차장**: `PARK`, `buildParking()`(주차칸 4개, 이웃 차, 전기차 충전기, 관리실, 차단기), `updateParkingGate`(가까이 가면 차단기 올라감), `checkParked`(빈 칸에서 내리면 주차 완료)
+13. **가게 내부 (편의점·천원샵 공용)**: `SHOPS` = `{conv, daiso}` (문·계산대·진열대·경계·장애물·사장/손님 상품). `PLAYER.inStore` + `PLAYER.shop`, `curShop()`, `storeItems()`, `shopDoorNear()`, `enterStore(id)`, `S.basket`, `addToBasket`, `payBasket`
+    - 천원샵 상품 `DAISO_OWNER`/`DAISO_CUST`: `once:true`인 물건은 하루 한 개, 효과는 `S.buff[id]`에 저장 → `endDay`/`endDayCustomer`에서 초기화 (밤에 사면 다음 날까지). 화면 왼쪽 위 `#buffs`에 아이콘 표시(`renderBuffs`)
+    - 버프 효과 위치: `finishService`(scrubTowel, basin), `tick`(basin, mat, aroma), `depart`(towel), `finishMe`(cTowel, duck, sheep), `updatePlayer`(slipper 속도, 양머리 표시)
 14. **역할**: `startRole`, `applyRoleLook`, `useFacility/finishMe`(손님이 직접 이용), `autoManage`
 15. **프리미엄**: `PREM_PRICE = 1,000,000`, `premDoor`, `enterPrem/exitPrem`, `soakJacuzzi`, 숙면 보너스(`S.sleptPrem`)
 16. **관리자**: `ADMIN`, `openAdmin`, `adminAction`
@@ -70,8 +74,8 @@
 - 단위: 대략 1 = 1m. 바닥 y=0. 캐릭터 정면 = +z (회전 0).
 - **목욕탕**: x -10~10. 욕탕 홀 z -7.3~1.45, 탈의실 z 1.45~7. 뒤·왼쪽 벽만 있고 지붕 없음(위에서 보는 단면 구조).
 - **앞 도로**: z 10~17. 내 차 처음 위치 (3, 12.2).
-- **편의점 외관** (-15, 5), 문 앞 (-15, 8.4). **행복아파트** (24, 2), 문 앞 (24, 5.5). **프리미엄 타워** (30.5, -6), 문 앞 (30.5, -2.3).
-- **실내 방은 멀리 따로 만들어 순간이동**: 집 `HX = 70`, 편의점 내부 `SX = 100`, 펜트하우스 `PX = 130`. 방마다 `collide()`의 `room` 인자(`'home' | 'store' | 'prem'`)로 경계와 장애물(`HOME_OBST` 등)을 바꿈.
+- **편의점 외관** (-15, 5), 문 앞 (-15, 8.4). **천원샵 외관** (-24, 4.7), 문 앞 (-24, 8.4). **행복아파트** (24, 2), 문 앞 (24, 5.5). **프리미엄 타워** (30.5, -6), 문 앞 (30.5, -2.3). **주차장** x 32.2~41.8, z 0.4~7.3 (입구·차단기는 오른쪽 x 37~41.8).
+- **실내 방은 멀리 따로 만들어 순간이동**: 집 `HX = 70`, 편의점 내부 `SX = 100`, 펜트하우스 `PX = 130`, 천원샵 내부 `DX = 160`. 방마다 `collide()`의 `room` 인자(`'home' | 'store' | 'prem'`)로 경계와 장애물(`HOME_OBST` 등)을 바꿈.
 - 장애물: `OBST`(바깥, `[x0, z0, x1, z1]` 사각형). 새 건물을 추가하면 `OBST.push()` 해야 함.
 
 ## 새 기능 추가 방법
@@ -94,7 +98,9 @@
   python3 -c "import re;s=open('index.html').read();open('/tmp/g.js','w').write(re.findall(r'<script>(.*?)</script>',s,re.S)[-1])" && node --check /tmp/g.js
   ```
   작업 환경에서 cdnjs 접속이 막혀 있으면 3D 화면은 직접 띄워 볼 수 없음 → 사용자에게 확인을 부탁할 것.
-- 실존 브랜드나 상표 디자인을 흉내 내지 않음 (편의점은 "행복 편의점", 우유병은 일반 노란 병).
+- 실존 브랜드나 상표 디자인을 흉내 내지 않음 (편의점은 "행복 편의점", 생활용품점은 "행복 천원샵"(민트색), 우유병은 일반 노란 병).
+- 그림자: `followSun()`이 태양과 그림자 범위를 카메라 시점(`cam.target`)에 맞춰 옮김 → 실내·먼 장소도 그림자가 생김.
+- 밤에 불 들어오는 간판: 재질을 `W.nightGlow`에 넣으면 `updateWeather`가 밝기를 조절.
 
 ## 변경 이력 (요약)
 
@@ -109,3 +115,5 @@
 9. 관리자 패널(비밀번호)
 10. 사장/손님 모드 선택, 편의점 안에서 직접 골라 사기
 11. 프리미엄 타워(펜트하우스, 자쿠지, 숙면 보너스)
+12. 밸런스: 평판→손님 수 반영, 자쿠지 하루 1회, 손님 모드 펜트하우스 특가 15만 원
+13. 행복 천원샵(직접 들어가서 쇼핑, 사장/손님별 상품·하루 버프), 행복아파트 주차장(차단기·주차칸·EV 충전기)

@@ -1956,12 +1956,13 @@ function openAdmin(){
       <b>🛡️ 기타</b><div>${b('pat', ADMIN.noPatience ? '손님 인내심 무한: 켜짐' : '손님 인내심 무한: 꺼짐')} ${b('lock','🔒 이 기기에서 관리자 끄기')}</div>
     </div>
     <p style="font-size:12px;opacity:.7">현재: 💰 ${won(S.money)}원 · ⭐ ${S.rep.toFixed(2)} · 속도 x${ADMIN.speed}${inDay ? '' : ' · (손님 소환/마감은 영업 중에만)'}</p>`,
-    [['닫기', () => { S.paused = false; hideModal(); }, 'primary']]);
+    [['닫기', () => { S.paused = false; PLACE.open = false; mgStop(); hideModal(); if(S.phase==='night') toast('🌙 지금은 밤이에요! 행복아파트(우리 집) 침대에서 E를 눌러 자면 다음 날이 돼요'); }, 'primary']]);
   document.querySelectorAll('.adm').forEach(btn => btn.addEventListener('click', () => { adminAction(btn.dataset.a); }));
 }
 function adminAction(a){
   const inDay = S.phase==='day' || S.phase==='closing';
-  if(a.startsWith('m')){ S.money = a==='m0' ? 0 : S.money + ({m10:1e4, m100:1e5, m1000:1e6})[a]; }
+  const MONEY = {m10:1e4, m100:1e5, m1000:1e6}; // 'maxup'·'milk'도 m으로 시작해서 돈이 NaN이 되던 버그 수정
+  if(a==='m0' || a in MONEY){ const k = S.role==='customer' ? 'wallet' : 'money'; S[k] = a==='m0' ? 0 : (Number.isFinite(S[k]) ? S[k] : 0) + MONEY[a]; }
   if(a==='r5') S.rep = 5; if(a==='r1') S.rep = 1.5;
   if(a.startsWith('w_')){ S.weather = a.slice(2); }
   if(a.startsWith('s_') && S.phase==='day'){ const n = a==='s_five' ? 5 : 1; for(let i=0;i<n;i++) spawn(a==='s_five' ? null : a.slice(2)); }
@@ -1970,7 +1971,7 @@ function adminAction(a){
   if(a==='milk'){ S.milk.stock = Math.max(S.milk.stock, 18); S.eggs = Math.max(S.eggs, 30); }
   if(a.startsWith('sp')) ADMIN.speed = +a.slice(2);
   if(a==='close' && S.phase==='day') S.time = DAY_LEN;
-  if(a==='night' && inDay){ S.queue.slice().forEach(c => { removeFromQueue(c); leaveWalk(c, '내일 올게요 👋'); }); for(const k in FAC) S.fac[k].slots = S.fac[k].slots.map(()=>null); PLAYER.using = null; S.people.forEach(c => { if(c.loc==='svc'){ c.atK = null; leaveWalk(c,'👋'); } }); S.buff = {}; if(!S.ds) S.ds = {visitors:0, served:0, services:0, angry:0, revenue:0, cost:0, milk:0, moodSum:0, startMoney:S.money}; S.phase = 'night'; }
+  if(a==='night' && inDay){ S.queue.slice().forEach(c => { removeFromQueue(c); leaveWalk(c, '내일 올게요 👋'); }); for(const k in FAC) S.fac[k].slots = S.fac[k].slots.map(()=>null); PLAYER.using = null; S.people.forEach(c => { if(c.loc==='svc'){ c.atK = null; leaveWalk(c,'👋'); } }); S.buff = {}; if(!S.ds) S.ds = {visitors:0, served:0, services:0, angry:0, revenue:0, cost:0, milk:0, moodSum:0, startMoney:S.money}; goNight(); }
   if(a==='d_minus') S.day = Math.max(1, S.day-1);
   if(a==='d_plus') S.day = Math.min(DAYS, S.day+1);
   if(a==='pat') ADMIN.noPatience = !ADMIN.noPatience;
@@ -3915,6 +3916,7 @@ function renderPanel(){
   $('#timebar i').style.width = Math.min(100, S.time/DAY_LEN*100) + '%';
 }
 function updateHUD(){
+  if(!Number.isFinite(S.money)) S.money = 0; if(!Number.isFinite(S.wallet)) S.wallet = 0; // 돈이 깨지면 0으로 복구
   $('#day').textContent = S.day;
   if(S.role==='customer'){ $('#money').textContent = won(S.wallet) + ' (지갑)'; $('#rep').textContent = '개운함 ' + Math.round(S.fresh); }
   else { $('#money').textContent = won(S.money); $('#rep').textContent = S.rep.toFixed(1); }

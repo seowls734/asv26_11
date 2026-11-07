@@ -60,8 +60,9 @@
 11. **플레이어**: `PLAYER`(`x, z, inHome, inStore, inPrem, using, jacuzzi`), `updatePlayer`, `collide(P, R, extra, room)`, `interactMain`, `nearestTargets`
 12. **운전**: `DRIVE`, `buildMyCar`, `enterCar/exitCar/updateCar`, `CAR_BLOCK`
     - **주차장**: `PARK`, `buildParking()`(주차칸 4개, 이웃 차, 전기차 충전기, 관리실, 차단기), `updateParkingGate`(가까이 가면 차단기 올라감), `checkParked`(빈 칸에서 내리면 주차 완료)
-13. **가게 내부 (편의점·천원샵 공용)**: `SHOPS` = `{conv, daiso}` (문·계산대·진열대·경계·장애물·사장/손님 상품). `PLAYER.inStore` + `PLAYER.shop`, `curShop()`, `storeItems()`, `shopDoorNear()`, `enterStore(id)`, `S.basket`, `addToBasket`, `payBasket`
+13. **가게 내부 (편의점·천원샵·펫샵 공용)**: `SHOPS` = `{conv, daiso, pet}` (문·계산대·진열대·경계·장애물·사장/손님 상품). `PLAYER.inStore` + `PLAYER.shop`, `curShop()`, `storeItems()`, `shopDoorNear()`, `enterStore(id)`, `S.basket`, `addToBasket`, `payBasket`
     - 천원샵 상품 `DAISO_OWNER`/`DAISO_CUST`: `once:true`인 물건은 하루 한 개, 효과는 `S.buff[id]`에 저장 → `endDay`/`endDayCustomer`에서 초기화 (밤에 사면 다음 날까지). 화면 왼쪽 위 `#buffs`에 아이콘 표시(`renderBuffs`)
+    - 펫샵 `PET_OWNER`/`PET_CUST`: `pet:'dog'|'cat'|'hamster'` 입양 → `S.pet`(따라다니는 반려동물, `PET`·`updatePets`·`makePet`), 리본 `S.petBow`, 사장 전용 영구 `S.shopCat`(인내심 +15%, `resetPatience`)·`S.fishTank`(만족도 +5, `depart`)
     - 버프 효과 위치: `finishService`(scrubTowel, basin), `tick`(basin, mat, aroma), `depart`(towel), `finishMe`(cTowel, duck, sheep), `updatePlayer`(slipper 속도, 양머리 표시)
 14. **역할**: `startRole`, `applyRoleLook`, `useFacility/finishMe`(손님이 직접 이용), `autoManage`
 15. **프리미엄**: `PREM_PRICE = 1,000,000`, `premDoor`, `enterPrem/exitPrem`, `soakJacuzzi`, 숙면 보너스(`S.sleptPrem`)
@@ -74,8 +75,8 @@
 - 단위: 대략 1 = 1m. 바닥 y=0. 캐릭터 정면 = +z (회전 0).
 - **목욕탕**: x -10~10. 욕탕 홀 z -7.3~1.45, 탈의실 z 1.45~7. 뒤·왼쪽 벽만 있고 지붕 없음(위에서 보는 단면 구조).
 - **앞 도로**: z 10~17. 내 차 처음 위치 (3, 12.2).
-- **편의점 외관** (-15, 5), 문 앞 (-15, 8.4). **천원샵 외관** (-24, 4.7), 문 앞 (-24, 8.4). **행복아파트** (24, 2), 문 앞 (24, 5.5). **프리미엄 타워** (30.5, -6), 문 앞 (30.5, -2.3). **주차장** x 32.2~41.8, z 0.4~7.3 (입구·차단기는 오른쪽 x 37~41.8).
-- **실내 방은 멀리 따로 만들어 순간이동**: 집 `HX = 70`, 편의점 내부 `SX = 100`, 펜트하우스 `PX = 130`, 천원샵 내부 `DX = 160`. 방마다 `collide()`의 `room` 인자(`'home' | 'store' | 'prem'`)로 경계와 장애물(`HOME_OBST` 등)을 바꿈.
+- **편의점 외관** (-15, 5), 문 앞 (-15, 8.4). **천원샵 외관** (-24, 4.7), 문 앞 (-24, 8.4). **펫샵 외관** (-37, 4.7), 문 앞 (-37, 8.4). **행복아파트** (24, 2), 문 앞 (24, 5.5). **프리미엄 타워** (30.5, -6), 문 앞 (30.5, -2.3). **주차장** x 32.2~41.8, z 0.4~7.3 (입구·차단기는 오른쪽 x 37~41.8).
+- **실내 방은 멀리 따로 만들어 순간이동**: 집 `HX = 70`, 편의점 내부 `SX = 100`, 펜트하우스 `PX = 130`, 천원샵 내부 `DX = 160`, 펫샵 내부 `PET_X = 190`. 방마다 `collide()`의 `room` 인자(`'home' | 'store' | 'prem'`)로 경계와 장애물(`HOME_OBST` 등)을 바꿈.
 - 장애물: `OBST`(바깥, `[x0, z0, x1, z1]` 사각형). 새 건물을 추가하면 `OBST.push()` 해야 함.
 
 ## 새 기능 추가 방법
@@ -117,3 +118,4 @@
 11. 프리미엄 타워(펜트하우스, 자쿠지, 숙면 보너스)
 12. 밸런스: 평판→손님 수 반영, 자쿠지 하루 1회, 손님 모드 펜트하우스 특가 15만 원
 13. 행복 천원샵(직접 들어가서 쇼핑, 사장/손님별 상품·하루 버프), 행복아파트 주차장(차단기·주차칸·EV 충전기)
+14. 행복 펫샵(반려동물 입양·따라다니기, 가게 고양이·대기실 어항), 손님 모드 밤 구매 개운함 이월(`gainFresh`)

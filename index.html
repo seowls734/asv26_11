@@ -394,14 +394,14 @@ const sMat = (tex, opt={}) => new THREE.MeshLambertMaterial(Object.assign({map:t
 /* ======================= 건물 만들기 ======================= */
 function buildWorld(){
   // 바닥
-  const hallFloor = plane(20, 8.6, sMat(tileTex('#cfe8f0','#9cc7d6',40,17.2)), 0, 0, -2.85); hallFloor.rotation.x = -Math.PI/2; hallFloor.receiveShadow = true;
-  const chFloor = plane(20, 6.4, sMat(woodTex('#d9b07a',5,3)), 0, 0.001, 4.65); chFloor.rotation.x = -Math.PI/2; chFloor.receiveShadow = true;
+  const hallFloor = plane(20, 8.6, glossMat(tileTex('#cfe8f0','#9cc7d6',40,17.2), .2, 80), 0, 0, -2.85); hallFloor.rotation.x = -Math.PI/2; hallFloor.receiveShadow = true;
+  const chFloor = plane(20, 6.4, glossMat(woodTex('#d9b07a',5,3), .1, 40), 0, 0.001, 4.65); chFloor.rotation.x = -Math.PI/2; chFloor.receiveShadow = true;
   const mat = plane(2.2, 1.0, sMat(textTex('어서 오세요',{bg:'#b5473a',fg:'#fff4dc',border:'#7a2a22',font:56})), 0, .012, 7.0); mat.rotation.x = -Math.PI/2;
 
   // 벽
-  const wallTile = sMat(tileTex('#eef8fb','#bcdbe6',40,7.2));
+  const wallTile = glossMat(tileTex('#eef8fb','#bcdbe6',40,7.2), .12, 60);
   box(20.3, 3.6, .3, wallTile, 0, 1.8, -7.3);
-  box(.3, 3.6, 8.6, sMat(tileTex('#eef8fb','#bcdbe6',17.2,7.2)), -10.15, 1.8, -2.85);
+  box(.3, 3.6, 8.6, glossMat(tileTex('#eef8fb','#bcdbe6',17.2,7.2), .12, 60), -10.15, 1.8, -2.85);
   box(.3, 3.6, 6.4, sMat(woodTex('#e3c79c',1,4,true)), -10.15, 1.8, 4.65);
   box(.34, .9, 6.4, M('#8b5a2b'), -10.1, .45, 4.65);
   // 벽화 (산과 해)
@@ -488,7 +488,7 @@ function buildTub(k, cx, cz, w, d, color){
     c.fillStyle = '#b9c1c5'; c.fillRect(0,0,W2,H);
     for(let i=0;i<26;i++){ c.fillStyle = pick(['#d9dee0','#9ba3a8','#c7ced1','#aab2b6']); c.beginPath(); c.ellipse(Math.random()*W2,Math.random()*H,rnd(8,18),rnd(6,13),Math.random()*3,0,7); c.fill(); }
   }, 3, 1);
-  const stone = sMat(stoneTex), h = .78, t = .38;
+  const stone = glossMat(stoneTex, .08, 30), h = .78, t = .38;
   box(w, .1, d, M(k==='warm'?'#d9a28a':'#7fb9c9'), 0, .05, 0, g);
   box(w, h, t, stone, 0, h/2, -d/2+t/2, g); box(w, h, t, stone, 0, h/2, d/2-t/2, g);
   box(t, h, d-2*t, stone, -w/2+t/2, h/2, 0, g); box(t, h, d-2*t, stone, w/2-t/2, h/2, 0, g);
@@ -497,7 +497,7 @@ function buildTub(k, cx, cz, w, d, color){
     c.strokeStyle = '#ffffff'; c.lineWidth = 5;
     for(let r=0;r<9;r++){ c.beginPath(); for(let x=0;x<=W2;x+=8){ const y = r*30+12+Math.sin(x/22+r)*6; x? c.lineTo(x,y) : c.moveTo(x,y); } c.stroke(); }
   }, 2, 1.4);
-  const wm = new THREE.MeshLambertMaterial({color, map:ripple, transparent:true, opacity:.82, depthWrite:false});
+  const wm = new THREE.MeshPhongMaterial({color, map:ripple, transparent:true, opacity:.82, depthWrite:false, shininess:140, specular:'#ffffff', envMap:envTex(), combine:THREE.MixOperation, reflectivity:.1});
   const water = plane(w-2*t, d-2*t, wm, 0, .6, 0, g); water.rotation.x = -Math.PI/2; water.renderOrder = 2;
   tagPick(g, {k});
   glowPad(k, w+.6, d+.6, cx, cz);
@@ -732,6 +732,7 @@ function buildOutside(){
   buildApartment();
   buildParking();
   buildBathUpgrade();
+  buildSparkles();
   buildSeoul();
   box(1.6,.1,.45,M('#a8703c'),6,.45,9.1); box(1.6,.4,.06,M('#a8703c'),6,.7,8.9);
   box(.06,.42,.4,M('#555'),5.3,.21,9.1); box(.06,.42,.4,M('#555'),6.7,.21,9.1);
@@ -838,6 +839,40 @@ function buildRoadExt(){
     plane(2.6, .8, new THREE.MeshLambertMaterial({map:textTex(t,{w:384,h:120,bg:'#1f5fae',fg:'#ffffff',border:'#ffffff',font:50})}), x, 3.1, 9.8);
     OBST.push([x-.2, 9.55, x+.2, 9.85]);
   });
+}
+
+/* ======================= ✨ 광택 (반사 하늘 + 반짝이) ======================= */
+// 하늘 큐브 텍스처를 살짝 비춰서 물·타일·자동차가 반짝여요. glossMat(맵, 반사, 광택)
+let ENV_TEX = null;
+function envTex(){
+  if(ENV_TEX) return ENV_TEX;
+  const mk = (top, bot, win) => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, 0, 64); gr.addColorStop(0, top); gr.addColorStop(1, bot); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    if(win){ g.fillStyle = 'rgba(255,255,255,.7)'; g.fillRect(8, 10, 18, 20); g.fillRect(38, 10, 18, 20); } return c; };
+  const side = mk('#d8f0fb', '#f4ecdc', true), top = mk('#ffffff', '#cfeaf7'), bot = mk('#9aa3a8', '#7d858c');
+  ENV_TEX = new THREE.CubeTexture([side, side, top, bot, side, side]); ENV_TEX.needsUpdate = true;
+  return ENV_TEX;
+}
+const GLOSS_CACHE = {};
+function glossMat(map, refl=.18, shin=60, opt={}){
+  return new THREE.MeshPhongMaterial(Object.assign({map, color:'#ffffff', shininess:shin, specular:'#4a4a4a', envMap:envTex(), combine:THREE.MixOperation, reflectivity:refl}, opt));
+}
+function glossPaint(color){ return GLOSS_CACHE[color] || (GLOSS_CACHE[color] = new THREE.MeshPhongMaterial({color, shininess:90, specular:'#777777', envMap:envTex(), combine:THREE.MixOperation, reflectivity:.22})); }
+// 깨끗한 시설 위에 반짝이 ✨
+const SPARK = {list:[], tex:null};
+function buildSparkles(){
+  SPARK.tex = canvasTex(64, 64, (g, w, h) => { const gr = g.createRadialGradient(32, 32, 0, 32, 32, 30); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.25, 'rgba(255,244,190,.9)'); gr.addColorStop(1, 'rgba(255,244,190,0)');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(32, 0); g.quadraticCurveTo(36, 28, 64, 32); g.quadraticCurveTo(36, 36, 32, 64); g.quadraticCurveTo(28, 36, 0, 32); g.quadraticCurveTo(28, 28, 32, 0); g.fill(); });
+  Object.keys(ZONES).forEach(k => { if(!FAC[k]) return; const r = ZONES[k];
+    for(let i=0;i<5;i++){ const m = new THREE.SpriteMaterial({map:SPARK.tex, color:'#ffc93c', transparent:true, depthWrite:false, opacity:0});
+      const sp = new THREE.Sprite(m); sp.position.set(rnd(r[0] + .3, r[2] - .3), rnd(.9, 1.6), rnd(r[1] + .3, r[3] - .3)); scene.add(sp);
+      SPARK.list.push({sp, k, ph:rnd(0, 6), sz:rnd(.4, .65), r}); sp.renderOrder = 5; } });
+}
+function updateSparkles(){
+  if(!S || !S.fac) return;
+  SPARK.list.forEach(o => { const clean = (S.fac[o.k] || {}).clean || 0, on = clean >= 90 && !PLAYER.inHome && !PLAYER.inStore && !PLAYER.inPrem;
+    const tw = Math.max(0, Math.sin(T*2.4 + o.ph)); o.sp.material.opacity = on ? tw*.95 : 0; o.sp.scale.setScalar(o.sz*(.4 + tw*.8));
+    if(tw < .02 && on){ o.sp.position.set(rnd(o.r[0] + .3, o.r[2] - .3), rnd(.9, 1.6), rnd(o.r[1] + .3, o.r[3] - .3)); } });
 }
 /* ======================= 📱 휴대폰 + 🛡️ 방범모드 + 월패드 ======================= */
 // HUD 📱 버튼 또는 P 키 → 휴대폰. '행복 방범' 앱에서 방범 켜기/끄기 (S.security).
@@ -1386,7 +1421,7 @@ const CAR_MODELS = {
            colors:['#d9342b','#1d5fd1','#f4f4f4'], colorN:['레이싱 레드','일렉트릭 블루','화이트'],
            L:3.1, W:1.4, belt:.62, roof:.95, nose:.46, deck:.66, tail:.6, aB:.36, aT:-.26, cT:-.92, cB:-1.4, wb:[-1.0,1.0], lights:'twin', rim:'#2a2e33', spoiler:true}
 };
-const CAR_GLASS = new THREE.MeshPhongMaterial({color:'#1b2430', shininess:120, specular:'#9fb6c8'});
+let CAR_GLASS = new THREE.MeshPhongMaterial({color:'#1b2430', shininess:120, specular:'#9fb6c8'});
 const CAR_DARK = new THREE.MeshLambertMaterial({color:'#17191c'});
 const CAR_HEAD = new THREE.MeshLambertMaterial({color:'#f4f8ff', emissive:'#eaf4ff', emissiveIntensity:.5});
 const CAR_TAIL = new THREE.MeshLambertMaterial({color:'#d4202a', emissive:'#ff2a2a', emissiveIntensity:.5});
@@ -1444,7 +1479,8 @@ function plateTex(){ return textTex('12가 3456', {w:256, h:72, bg:'#f8f8f8', fg
 let PLATE_TEX = null;
 function makeModelCar(id, color, parent=scene){
   const m = CAR_MODELS[id], g = group(0, 0, 0, parent), h = m.L/2, W = m.W;
-  const paint = new THREE.MeshPhongMaterial({color, shininess:90, specular:'#5a5a5a'});
+  if(!CAR_GLASS.envMap){ CAR_GLASS.envMap = envTex(); CAR_GLASS.combine = THREE.MixOperation; CAR_GLASS.reflectivity = .45; CAR_GLASS.needsUpdate = true; }
+  const paint = new THREE.MeshPhongMaterial({color, shininess:100, specular:'#6a6a6a', envMap:envTex(), combine:THREE.MixOperation, reflectivity:.2});
   carExtrude(carBodyShape(m), W - .1, paint, g);
   carExtrude(carGlassShape(m), W*.84, CAR_GLASS, g, false);
   carExtrude(carRoofShape(m), W*.88, m.ev ? CAR_GLASS : paint, g, false);
@@ -1733,7 +1769,7 @@ function buildSeoul(){
     g.fillStyle = '#4f8fc0'; g.fillRect(0,0,w,h);
     for(let i=0;i<60;i++){ g.strokeStyle = `rgba(255,255,255,${rnd(.08,.22)})`; g.lineWidth = 2; const x = rnd(0,w), y = rnd(0,h); g.beginPath(); g.moveTo(x,y); g.quadraticCurveTo(x+10,y-4,x+24,y); g.stroke(); }
   }, 40, 4);
-  const river = plane(420, 22, new THREE.MeshLambertMaterial({map:SEOUL.riverTex, color:'#ffffff'}), 0, .03, -45.8); river.rotation.x = -Math.PI/2;
+  const river = plane(420, 22, new THREE.MeshPhongMaterial({map:SEOUL.riverTex, color:'#ffffff', shininess:100, specular:'#ffffff', envMap:envTex(), combine:THREE.MixOperation, reflectivity:.25}), 0, .03, -45.8); river.rotation.x = -Math.PI/2;
   box(420, .5, .3, M('#b8b2a6'), 0, -.05, -34.9);   // 강둑
   const far = plane(420, 160, sMat(tileTex('#bdb8ac','#aaa497',120,40)), 0, .035, -137); far.rotation.x = -Math.PI/2;
   const fgrass = plane(420, 3.5, M('#86b866'), 0, .045, -58.6); fgrass.rotation.x = -Math.PI/2;
@@ -2999,6 +3035,7 @@ function buildTraffic(){
   for(let i=0; i<14; i++) T_.vehicles.push(trfSedan(pick(TRF_COLORS)));
   T_.vehicles.push(trfTaxi(), trfTaxi(), trfTaxi(), trfTruck(), trfTruck(), trfTruck());
   T_.bus = trfBus(); T_.vehicles.push(T_.bus);
+  T_.vehicles.forEach(V => (V.body || []).forEach(m => { if(m.material && m.material.color && !m.material.map) m.material = glossPaint('#' + m.material.color.getHexString()); })); // ✨ 광택 도장
   // 처음 배치 (내 차 (3, 12.2) 근처는 피함)
   const init = [[0, -38], [0, 12], [0, 30], [1, -25], [1, 6], [1, 27]];
   const pool = T_.vehicles.filter(v => v.kind !== 'bus');
@@ -3017,7 +3054,7 @@ function trfActivate(V, lane, p){
   const L = TRAFFIC.lanes[lane];
   V.lane = lane; V.dir = L.dir; V.laneZ = L.z; V.sgn = L.sgn; V.p = p; V.off = 0; V.swerve = false;
   V.dwell = 0; V.served = false; V.waitT = 0; V.active = true; V.g.visible = true;
-  if(V.kind === 'sedan'){ const c = M(pick(TRF_COLORS)); V.body.forEach(m => m.material = c); }
+  if(V.kind === 'sedan'){ const c = glossPaint(pick(TRF_COLORS)); V.body.forEach(m => m.material = c); }
   if(V.kind === 'sedan' || V.kind === 'taxi') V.vmax = rnd(5.5, 8.5);
   else if(V.kind === 'truck') V.vmax = rnd(5, 7);
   V.v = V.vmax * .8;
@@ -4159,6 +4196,7 @@ function loop(ts){
     updateSeoul(dt);
     updateDealer(dt);
     updateBath(dt);
+    updateSparkles();
   }
   updateCamera();
   followSun();

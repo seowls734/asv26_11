@@ -140,6 +140,65 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
   #stage{height:58vh}
   .status{max-width:calc(100% - 150px);font-size:12px}
 }
+/* 📱 휴대폰 */
+#phone{position:absolute;right:14px;bottom:62px;z-index:6;width:232px;height:min(452px,calc(100% - 72px));transition:transform .25s,opacity .25s}
+#phone.hidden{transform:translateY(30px);opacity:0;pointer-events:none}
+.ph-body{position:relative;width:100%;height:100%;background:#1d2329;border-radius:34px;padding:12px 10px 34px;box-shadow:0 8px 0 #0b0e11,0 14px 30px rgba(0,0,0,.35);border:3px solid #2c3440}
+.ph-notch{position:absolute;left:50%;top:10px;transform:translateX(-50%);width:70px;height:14px;background:#0b0e11;border-radius:0 0 10px 10px;z-index:2}
+.ph-status{display:flex;justify-content:space-between;font-size:11px;color:#fff;padding:3px 12px 0;height:18px;position:relative;z-index:3;font-family:'Jua'}
+.ph-screen{position:absolute;left:10px;right:10px;top:12px;bottom:34px;border-radius:24px;overflow:hidden auto;padding:24px 12px 12px;background:linear-gradient(160deg,#ffd6a5,#ff9ec4 45%,#9fb8ff);color:#24323a;font-size:13px}
+.ph-home{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);width:76px;height:5px;border-radius:9px;background:#8a939b;cursor:pointer}
+#phClose{position:absolute;right:-8px;top:-8px;width:26px;height:26px;border-radius:50%;border:2px solid #24323a;background:#fff;cursor:pointer;font-size:12px;z-index:4}
+.ph-clock{font-family:'Jua';font-size:46px;text-align:center;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.25);margin-top:6px}
+.ph-date{text-align:center;color:#fff;font-size:13px;margin-bottom:14px;text-shadow:0 1px 4px rgba(0,0,0,.3)}
+.ph-apps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.ph-app{background:none;border:0;cursor:pointer;font-size:10.5px;color:#fff;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;font-family:'Gowun Dodum';text-shadow:0 1px 3px rgba(0,0,0,.4)}
+.ph-app i{font-style:normal;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:22px;box-shadow:0 3px 8px rgba(0,0,0,.2)}
+.ph-badge{position:absolute;right:2px;top:-4px;background:#e0302a;color:#fff;border-radius:9px;font-size:10px;padding:0 5px;font-style:normal}
+.ph-widget{margin-top:16px;background:rgba(255,255,255,.85);border-radius:14px;padding:10px;text-align:center;font-family:'Jua';font-size:15px}
+.ph-bar{display:flex;align-items:center;gap:6px;font-family:'Jua';font-size:17px;margin:-6px -4px 10px}
+.ph-bar button{border:0;background:rgba(255,255,255,.75);border-radius:10px;width:28px;height:28px;font-size:18px;cursor:pointer}
+.ph-shield{width:96px;height:96px;margin:6px auto;border-radius:50%;display:grid;place-items:center;font-size:48px;background:#3b4a5a;box-shadow:0 0 0 6px rgba(255,255,255,.5)}
+.ph-shield.on{background:#2fa36b;animation:phPulse 1.6s infinite}
+@keyframes phPulse{50%{box-shadow:0 0 0 14px rgba(111,224,138,.35)}}
+.ph-state{text-align:center;font-family:'Jua';font-size:19px;margin:6px 0}
+.ph-big{text-align:center;font-size:64px;margin-top:10px}
+.ph-toggle{display:block;margin:8px auto;width:86px;height:42px;border-radius:30px;border:3px solid #24323a;background:#c8ccd2;position:relative;cursor:pointer;transition:background .2s}
+.ph-toggle span{position:absolute;left:3px;top:3px;width:30px;height:30px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.3);transition:left .2s}
+.ph-toggle.on{background:#2fa36b}.ph-toggle.on span{left:47px}
+.ph-note{font-size:12px;text-align:center;background:rgba(255,255,255,.75);border-radius:12px;padding:8px;margin:8px 0}
+.ph-list{font-size:11px;background:rgba(255,255,255,.7);border-radius:12px;padding:6px 8px}
+.ph-list div{padding:3px 0;border-bottom:1px dashed rgba(0,0,0,.12)}.ph-list.big{font-size:12.5px}
+/* 🏢 월패드 */
+#wallpad{position:absolute;inset:0;z-index:7;display:grid;place-items:center;background:rgba(10,14,20,.55)}
+#wallpad.hidden{display:none}
+.wp-dev{width:min(560px,94%);background:linear-gradient(#f4f6f8,#d9dee2);border-radius:22px;padding:14px 14px 10px;box-shadow:0 10px 0 #8a939b,0 18px 40px rgba(0,0,0,.45);border:3px solid #24323a}
+.wp-brand{display:flex;justify-content:space-between;font-family:'Jua';font-size:13px;color:#56626b;margin:0 4px 6px}
+.wp-screen{background:#0f2742;color:#fff;border-radius:12px;padding:10px 12px;border:4px solid #1d2329;min-height:240px}
+#wallpad.alarm .wp-screen{animation:wpFlash .7s infinite}
+@keyframes wpFlash{0%,100%{background:#b3141c}50%{background:#5a070c}}
+#wallpad.alarm{background:rgba(120,0,0,.45);animation:wpBg .7s infinite}
+@keyframes wpBg{50%{background:rgba(20,0,0,.6)}}
+.wp-top{display:flex;justify-content:space-between;font-size:12px;opacity:.85;margin-bottom:6px}
+.wp-main{display:flex;gap:10px;flex-wrap:wrap}
+.wp-left{flex:1 1 200px;text-align:center}
+.wp-warn{font-size:56px;line-height:1;animation:wpShake .5s infinite}.wp-warn.calm{animation:none}
+@keyframes wpShake{25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
+.wp-title{font-family:'Jua';font-size:24px;margin:4px 0}
+.wp-sub{font-size:12px;opacity:.85}
+.wp-cam{margin-top:8px;background:#05080c;border-radius:8px;padding:5px 8px;font-size:11px;text-align:left;position:relative;overflow:hidden}
+.wp-cam .rec{color:#ff4a4a;font-weight:bold;animation:wpBlink 1s infinite}
+@keyframes wpBlink{50%{opacity:.2}}
+.wp-cam-in{height:52px;display:grid;place-items:center;font-size:34px;background:repeating-linear-gradient(0deg,rgba(255,255,255,.04) 0 2px,transparent 2px 4px),#1b2430;border-radius:6px;margin-top:4px;filter:grayscale(.6)}
+.wp-right{flex:0 0 170px}
+.wp-code{background:#05080c;border-radius:8px;text-align:center;font-family:'Jua';font-size:20px;letter-spacing:6px;padding:6px;margin-bottom:6px;min-height:36px}
+.wp-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.wp-pad button{font-family:'Jua';font-size:16px;padding:7px 0;border-radius:8px;border:2px solid #24323a;background:#e9ecef;cursor:pointer}
+.wp-pad button:active{background:#ffe48a}
+.wp-btns{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+.wp-btns button{font-family:'Jua';font-size:15px;padding:7px 14px;border-radius:10px;border:2px solid #24323a;background:#fff;cursor:pointer;box-shadow:0 2px 0 #24323a}
+.shake{animation:wpShake .2s 2}
+@media (max-width:640px){ #phone{right:8px;bottom:56px;transform-origin:bottom right;scale:.82} #phone.hidden{transform:translateY(30px)} .wp-right{flex:1 1 100%} }
 </style>
 </head>
 <body>
@@ -153,12 +212,15 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
     <div class="stat" id="weather" title="오늘 날씨">☀️ 맑음</div>
     <div class="hud-sp"></div>
     <button class="iconbtn" id="adminBtn" title="관리자 패널" style="display:none">🛠️</button>
+    <button class="iconbtn" id="phoneBtn" title="휴대폰 (P)">📱</button>
     <button class="iconbtn" id="soundBtn" title="소리">🔊</button>
     <button class="iconbtn" id="pauseBtn" title="일시정지">⏸</button>
   </header>
   <div id="timebar"><i></i></div>
   <div id="stage">
     <div id="loading">♨ 목욕탕 물 데우는 중…</div>
+    <div id="phone" class="hidden"><div class="ph-body"><div class="ph-notch"></div><button id="phClose" title="닫기">✕</button><div class="ph-status"><span id="phTime">06:00</span><span>📶 🔋</span></div><div class="ph-screen" id="phScreen"></div><div class="ph-home" id="phHome" title="홈 화면"></div></div></div>
+    <div id="wallpad" class="hidden"><div class="wp-dev"><div class="wp-brand"><span>HAENGBOK HOME</span><span>📟 월패드</span></div><div class="wp-screen"></div></div></div>
     <div id="labels"></div>
     <div class="status" id="status">손님 머리 위 말풍선을 누르고 → 시설을 누르세요</div>
     <div class="keyhelp"><b>WASD</b> 이동 · <b>Shift</b> 달리기 · <b>E</b> 안내 · <b>R</b> 청소 · <b>F</b> 온도<br>🖱️ 드래그 회전 · 우클릭(또는 Shift+드래그) 이동 · 휠 확대 · <b>Z/C</b> 회전 · <b>T/G</b> 높이</div>
@@ -777,6 +839,159 @@ function buildRoadExt(){
     OBST.push([x-.2, 9.55, x+.2, 9.85]);
   });
 }
+/* ======================= 📱 휴대폰 + 🛡️ 방범모드 + 월패드 ======================= */
+// HUD 📱 버튼 또는 P 키 → 휴대폰. '행복 방범' 앱에서 방범 켜기/끄기 (S.security).
+// 켠 채로 우리 집에 들어가면 월패드가 "침입이 감지되었습니다" 음성 + 빨간 경보 화면 → 비밀번호(1234) 또는 휴대폰 앱으로 해제
+const SEC = {code:'1234', alarm:false, siren:0, voice:0, input:'', was:false, wpTex:{}, wpMat:null, app:'home'};
+function speak(t){
+  try{
+    if(!sound || !window.speechSynthesis) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(t); u.lang = 'ko-KR'; u.rate = 1; u.pitch = 1.05;
+    const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith('ko')); if(v) u.voice = v;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function secLog(t){ (S.secLog = S.secLog || []).unshift(`${S.day}일차 ${$('#clock').textContent} · ${t}`); S.secLog.length = Math.min(S.secLog.length, 8); }
+// ---------- 휴대폰 ----------
+function togglePhone(force){
+  const el = $('#phone'), show = force !== undefined ? force : el.classList.contains('hidden');
+  el.classList.toggle('hidden', !show);
+  if(show){ SEC.app = 'home'; renderPhone(); beep(990, .04, 'sine', .03); }
+}
+function renderPhone(){
+  const scr = $('#phScreen'); if(!scr || $('#phone').classList.contains('hidden')) return;
+  $('#phTime').textContent = $('#clock').textContent;
+  const on = !!S.security, w = WEATHER[S.weather], money = S.role === 'customer' ? S.wallet : S.money;
+  if(SEC.app === 'home'){
+    scr.innerHTML = `<div class="ph-clock">${$('#clock').textContent}</div><div class="ph-date">${S.day}일차 · ${w.icon} ${w.name}</div>
+      <div class="ph-apps">
+        <button class="ph-app" data-app="sec"><i style="background:${on ? '#2fa36b' : '#3b4a5a'}">🛡️</i>행복 방범</button>
+        <button class="ph-app" data-app="weather"><i style="background:#56a8e8">🌤️</i>날씨</button>
+        <button class="ph-app" data-app="bank"><i style="background:#f2b632">💰</i>지갑</button>
+        <button class="ph-app" data-app="msg"><i style="background:#6fcf97">💬</i>알림${(S.secLog||[]).length ? `<b class="ph-badge">${S.secLog.length}</b>` : ''}</button>
+      </div>
+      <div class="ph-widget">${on ? '🛡️ 방범 모드 <b style="color:#6fe08a">켜짐</b>' : '🔓 방범 모드 꺼짐'}</div>`;
+  } else if(SEC.app === 'sec'){
+    scr.innerHTML = `<div class="ph-bar"><button data-app="home">‹</button>행복 방범</div>
+      <div class="ph-shield ${on ? 'on' : ''}">${on ? '🛡️' : '🔓'}</div>
+      <div class="ph-state">${on ? '방범 모드 <b>켜짐</b>' : '방범 모드 꺼짐'}</div>
+      <button class="ph-toggle ${on ? 'on' : ''}" id="phToggle"><span></span></button>
+      <p class="ph-note">켜 두면 <b>행복아파트 우리 집</b>에 누가 들어올 때 월패드가 경보를 울려요.<br>해제 비밀번호 <b>${SEC.code}</b></p>
+      <div class="ph-list">${(S.secLog||[]).slice(0, 3).map(l => `<div>${l}</div>`).join('') || '<div>기록이 없어요</div>'}</div>`;
+    $('#phToggle').onclick = () => setSecurity(!S.security, '휴대폰 앱');
+  } else if(SEC.app === 'weather'){
+    const nx = WEATHER[S.nextWeather] || w;
+    scr.innerHTML = `<div class="ph-bar"><button data-app="home">‹</button>날씨</div><div class="ph-big">${w.icon}</div><div class="ph-state">오늘 <b>${w.name}</b></div><p class="ph-note">내일 예보: ${nx.icon} ${nx.name}</p>`;
+  } else if(SEC.app === 'bank'){
+    scr.innerHTML = `<div class="ph-bar"><button data-app="home">‹</button>지갑</div><div class="ph-big">💳</div><div class="ph-state">${won(money)}원</div><p class="ph-note">${S.role === 'customer' ? '손님 모드 지갑이에요' : '행복탕 사장님 통장이에요'} · ${S.cars && S.cars.length ? '🚗 보유 차 ' + S.cars.length + '대' : '🚗 행복모터스에서 새 차를 사 보세요'}</p>`;
+  } else if(SEC.app === 'msg'){
+    scr.innerHTML = `<div class="ph-bar"><button data-app="home">‹</button>알림</div><div class="ph-list big">${(S.secLog||[]).map(l => `<div>🔔 ${l}</div>`).join('') || '<div>새 알림이 없어요</div>'}</div>`;
+  }
+  scr.querySelectorAll('[data-app]').forEach(b => b.onclick = () => { SEC.app = b.dataset.app; beep(880, .03, 'sine', .02); renderPhone(); });
+}
+function setSecurity(on, by){
+  S.security = on;
+  if(on){ speak('방범 모드가 설정되었습니다'); toast('🛡️ 방범 모드 켜짐 — 우리 집에 들어가면 월패드가 침입을 감지해요'); beep(660, .1, 'sine', .04); setTimeout(() => beep(990, .15, 'sine', .04), 120); }
+  else { speak('방범 모드가 해제되었습니다'); toast('🔓 방범 모드를 껐어요'); beep(990, .1, 'sine', .04); setTimeout(() => beep(660, .15, 'sine', .04), 120); }
+  secLog(`${on ? '방범 설정' : '방범 해제'} (${by})`);
+  updateWallpad3D(); renderPhone(); if(SEC.alarm && !on) stopAlarm();
+}
+// ---------- 월패드 (집 현관 옆 벽) ----------
+function wallpadTex(state){
+  if(SEC.wpTex[state]) return SEC.wpTex[state];
+  return SEC.wpTex[state] = canvasTex(256, 180, (g, w, h) => {
+    g.fillStyle = state === 'alarm' ? '#b3141c' : '#0f2742'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#ffffff'; g.font = FONT(22); g.textAlign = 'left'; g.fillText('행복홈 월패드', 14, 28);
+    g.textAlign = 'center'; g.font = FONT(64); g.fillText(state === 'alarm' ? '⚠️' : state === 'on' ? '🛡️' : '🏠', w/2, 98);
+    g.font = FONT(26); g.fillStyle = state === 'on' ? '#6fe08a' : '#ffffff';
+    g.fillText(state === 'alarm' ? '침입 감지!' : state === 'on' ? '방범 설정 중' : '방범 해제', w/2, 150);
+  });
+}
+function buildWallpad3D(){
+  const g = group(HX - 4.08, 0, .6); g.rotation.y = Math.PI/2;
+  box(.62, .5, .05, M('#e9ecef'), 0, 1.5, 0, g);
+  SEC.wpMat = new THREE.MeshBasicMaterial({map:wallpadTex('off')});
+  mesh(new THREE.PlaneGeometry(.5, .36), SEC.wpMat, 0, 1.52, .03, g, false);
+  [-.18, -.06, .06, .18].forEach(x => box(.07, .03, .02, M('#9aa3a8'), x, 1.29, .03, g));
+}
+function updateWallpad3D(){ if(SEC.wpMat){ SEC.wpMat.map = wallpadTex(SEC.alarm ? 'alarm' : S.security ? 'on' : 'off'); SEC.wpMat.needsUpdate = true; } }
+function nearWallpad(){ return PLAYER.inHome && Math.hypot(PLAYER.x - (HX - 3.9), PLAYER.z - .6) < 1.15; }
+function openWallpad(alarm){
+  const el = $('#wallpad'); el.classList.remove('hidden'); el.classList.toggle('alarm', !!alarm);
+  if(!SEC.open){ SEC.was = S.paused; SEC.open = true; } S.paused = true;
+  SEC.input = ''; renderWallpad();
+}
+function renderWallpad(msg){
+  const el = $('#wallpad'), alarm = SEC.alarm, on = !!S.security;
+  el.querySelector('.wp-screen').innerHTML = `
+    <div class="wp-top"><span>🏢 행복아파트 101동 1004호</span><span>${$('#clock').textContent}</span></div>
+    <div class="wp-main">
+      <div class="wp-left">
+        ${alarm ? `<div class="wp-warn">⚠️</div><div class="wp-title">침입이 감지되었습니다</div><div class="wp-sub">현관 센서 감지 · 비밀번호를 입력해 주세요</div>`
+                : `<div class="wp-warn calm">${on ? '🛡️' : '🏠'}</div><div class="wp-title">${on ? '방범 모드 설정 중' : '방범 모드 해제 상태'}</div><div class="wp-sub">${on ? '외출 방범이 켜져 있어요' : '외출할 때 방범을 켜 두세요'}</div>`}
+        <div class="wp-cam"><span class="rec">● REC</span> 현관 카메라 · ${S.day}일차 ${$('#clock').textContent}<div class="wp-cam-in">${alarm ? '🧍' : '🚪'}</div></div>
+      </div>
+      <div class="wp-right">
+        <div class="wp-code">${SEC.input.replace(/./g, '●') || (msg || '비밀번호')}</div>
+        <div class="wp-pad">${[1,2,3,4,5,6,7,8,9,'지움',0,'확인'].map(k => `<button data-k="${k}">${k}</button>`).join('')}</div>
+      </div>
+    </div>
+    <div class="wp-btns">
+      ${alarm ? `<button data-act="phone">📱 휴대폰 앱으로 해제</button><button data-act="guard">📞 경비실 호출</button>`
+              : `<button data-act="${on ? 'off' : 'on'}">${on ? '🔓 방범 해제' : '🛡️ 방범 설정'}</button><button data-act="close">닫기</button>`}
+    </div>`;
+  el.querySelectorAll('[data-k]').forEach(b => b.onclick = () => wpKey(String(b.dataset.k)));
+  el.querySelectorAll('[data-act]').forEach(b => b.onclick = () => {
+    const a = b.dataset.act;
+    if(a === 'close') return closeWallpad();
+    if(a === 'on'){ setSecurity(true, '월패드'); return renderWallpad(); }
+    if(a === 'off'){ if(SEC.input !== SEC.code){ speak('비밀번호를 입력해 주세요'); return renderWallpad('비밀번호 먼저!'); } setSecurity(false, '월패드'); return renderWallpad(); }
+    if(a === 'phone'){ togglePhone(true); SEC.app = 'sec'; renderPhone(); return; }
+    if(a === 'guard'){ speak('경비실을 호출합니다'); secLog('경비실 호출'); toast('📞 경비실: "바로 올라가 볼게요! 비밀번호는 1234예요~"'); }
+  });
+}
+function wpKey(k){
+  beep(1200, .03, 'square', .02);
+  if(k === '지움'){ SEC.input = SEC.input.slice(0, -1); return renderWallpad(); }
+  if(k === '확인'){
+    if(SEC.input === SEC.code){ if(SEC.alarm || S.security){ setSecurity(false, '월패드 비밀번호'); } SEC.input = ''; return renderWallpad('해제 완료'); }
+    speak('비밀번호가 틀렸습니다'); SEC.input = ''; $('#wallpad .wp-screen').classList.add('shake'); setTimeout(() => $('#wallpad .wp-screen').classList.remove('shake'), 400); return renderWallpad('틀렸어요');
+  }
+  if(SEC.input.length < 4) SEC.input += k;
+  renderWallpad();
+}
+function closeWallpad(){ if(SEC.alarm) return; $('#wallpad').classList.add('hidden'); SEC.open = false; S.paused = SEC.was; }
+function triggerAlarm(){
+  if(!S.security || SEC.alarm || !PLAYER.inHome) return;
+  SEC.alarm = true; secLog('🚨 침입 감지 (현관)'); updateWallpad3D();
+  openWallpad(true);
+  const msg = '침입이 감지되었습니다. 비밀번호를 입력해 주세요.';
+  speak(msg); SEC.voice = setInterval(() => speak(msg), 5200);
+  let hi = false; SEC.siren = setInterval(() => { hi = !hi; beep(hi ? 960 : 700, .42, 'sawtooth', .035); }, 450);
+}
+function stopAlarm(){
+  SEC.alarm = false; clearInterval(SEC.siren); clearInterval(SEC.voice); SEC.siren = SEC.voice = 0;
+  $('#wallpad').classList.remove('alarm'); updateWallpad3D();
+  setTimeout(() => { if(!SEC.alarm && SEC.open){ renderWallpad('해제 완료'); } }, 50);
+}
+function setupPhone(){
+  $('#phoneBtn').addEventListener('click', () => togglePhone());
+  $('#phClose').addEventListener('click', () => togglePhone(false));
+  $('#phHome').addEventListener('click', () => { SEC.app = 'home'; renderPhone(); });
+  window.addEventListener('keydown', e => {
+    if(SEC.open && !$('#wallpad').classList.contains('hidden')){
+      if(/^Digit\d$/.test(e.code) || /^Numpad\d$/.test(e.code)){ e.preventDefault(); e.stopPropagation(); return wpKey(e.code.slice(-1)); }
+      if(e.code === 'Backspace'){ e.preventDefault(); e.stopPropagation(); return wpKey('지움'); }
+      if(e.code === 'Enter' || e.code === 'NumpadEnter'){ e.preventDefault(); e.stopPropagation(); return wpKey('확인'); }
+      if(e.code === 'Escape'){ return closeWallpad(); }
+    }
+    if(e.code === 'KeyP' && !modalOpen()){ togglePhone(); }
+  }, true);
+  setInterval(renderPhoneClock, 1000);
+  buildWallpad3D();
+}
+function renderPhoneClock(){ const t = $('#phTime'); if(t && !$('#phone').classList.contains('hidden')){ t.textContent = $('#clock').textContent; if(SEC.app === 'home'){ const c = document.querySelector('.ph-clock'); if(c) c.textContent = $('#clock').textContent; } } }
 /* ======================= 행복탕 리모델링 + 코코아 자판기 ======================= */
 // 기본 장식(네온 간판·홍등·화분·벽시계·TV·모자이크)은 항상 보이고,
 // 상점 업그레이드 '행복탕 리모델링'(S.upg.remodel 1~3)을 살수록 장식이 더 생겨요 (요금 +10%·만족도 +4 / 단계)
@@ -1718,13 +1933,14 @@ function updateCar(dt){
 }
 function honk(){ if(!DRIVE.active) return; beep(392,.25,'square',.05); beep(494,.25,'square',.04); }
 function interactMain(){
-  if(modalOpen()) return;
+  if(modalOpen() || SEC.open) return;
   if(DRIVE.active) return exitCar();
   if(PLAYER.using) return;
   if(PLAYER.inStore){ if(nearStoreDoorIn()) return exitStore(); if(nearCounter()) return S.basket.length ? payBasket() : openPlace(storePlace()); const sh = nearShelf(); if(sh >= 0) return addToBasket(sh); return; }
   const sd = shopDoorNear(); if(sd) return enterStore(sd);
   if(PLAYER.inPrem){ if(nearPremDoorIn()) return exitPrem(); if(nearPremBed()) return S.premium ? sleep() : toast('구매해야 여기서 잘 수 있어요'); if(nearJacuzzi()) return soakJacuzzi(); const pp = nearPlace(); if(pp) return openPlace(pp); return; }
   if(nearPremDoorOut()) return premDoor();
+  if(nearWallpad()) return openWallpad(false);
   if(nearBed()) return sleep();
   if(nearHomeDoor()) return exitHome();
   if(nearAptDoor()) return enterHome();
@@ -1791,6 +2007,7 @@ function updatePlayer(dt){
   else if(shopDoorNear()) h = '<b>E</b> ' + ({conv:'편의점 들어가기 🏪', daiso:'천원샵 들어가기 🛍️', pet:'펫샵 들어가기 🐾'})[shopDoorNear()];
   else if(PLAYER.inPrem){ h = nearPremDoorIn() ? '<b>E</b> 밖으로 나가기 🚪' : nearPremBed() ? (S.phase==='night' ? '<b>E</b> 킹 침대에서 자기 💤✨' : '킹 침대 (밤에 잘 수 있어요)') : nearJacuzzi() ? (S.jacuzziDay === S.day ? '자쿠지 (오늘은 이미 즐겼어요)' : '<b>E</b> 자쿠지 즐기기 🛁') : nearPlace() ? '<b>E</b> 🎮 대형 TV 게임 · 💼 일하기' : ''; }
   else if(nearPremDoorOut()) h = S.premium ? '<b>E</b> 내 펜트하우스 들어가기 🏙️' : `<b>E</b> 프리미엄 타워 (${won(premPrice())}원)`;
+  else if(nearWallpad()) h = `<b>E</b> 📟 월패드 (방범 ${S.security ? '켜짐' : '꺼짐'})`;
   else if(nearBed()) h = S.phase==='night' ? '<b>E</b> 잠자기 💤' : '침대 (밤에 잘 수 있어요)';
   else if(nearHomeDoor()) h = '<b>E</b> 밖으로 나가기 🚪';
   else if(nearAptDoor()) h = '<b>E</b> 우리 집 들어가기 🏠';
@@ -1890,7 +2107,7 @@ function buildApartment(){
   plane(1.6,.4,sMat(textTex('🚪 현관',{w:256,h:64,font:40})),-3.4,2.45,3.2,g).rotation.y = Math.PI;
   W.homeLight = new THREE.PointLight('#ffe2b0', .9, 14); W.homeLight.position.set(HX, 2.8, 0); scene.add(W.homeLight);
 }
-function enterHome(){ PLAYER.inHome = true; PLAYER.x = HOME_DOOR_IN.x+.6; PLAYER.z = HOME_DOOR_IN.z-.6; cam.target.set(HX, 0, 0); PLAYER.follow = true; beep(520,.08,'triangle',.04); }
+function enterHome(){ PLAYER.inHome = true; PLAYER.x = HOME_DOOR_IN.x+.6; PLAYER.z = HOME_DOOR_IN.z-.6; cam.target.set(HX, 0, 0); PLAYER.follow = true; beep(520,.08,'triangle',.04); if(S.security) setTimeout(triggerAlarm, 700); }
 function exitHome(){ PLAYER.inHome = false; PLAYER.x = APT.door.x; PLAYER.z = APT.door.z+.6; cam.target.set(PLAYER.x, 0, PLAYER.z); PLAYER.follow = true; beep(420,.08,'triangle',.04); }
 function nearAptDoor(){ return !PLAYER.inHome && Math.hypot(PLAYER.x-APT.door.x, PLAYER.z-APT.door.z) < 1.7; }
 function nearHomeDoor(){ return PLAYER.inHome && Math.hypot(PLAYER.x-HOME_DOOR_IN.x, PLAYER.z-HOME_DOOR_IN.z) < 1.4; }
@@ -4228,6 +4445,7 @@ function init(){
     showModal(`<h2>⏸ 잠깐 쉬는 중</h2><p>평상에 앉아 식혜 한 잔 🍹</p>`, [['계속하기', ()=>{ S.paused=false; hideModal(); }, 'primary']]);
   });
   $('#soundBtn').addEventListener('click', () => { sound = !sound; $('#soundBtn').textContent = sound ? '🔊' : '🔇'; });
+  setupPhone();
   document.addEventListener('keydown', e => { if(e.key==='Escape') setSelected(null); });
   $('#loading').remove();
   showTitle();

@@ -285,6 +285,12 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
 .fs-msg{font-family:'Jua';font-size:17px}.fs-n{font-size:12px;opacity:.7;margin:2px 0 6px}
 .fs-btns{display:flex;gap:8px;justify-content:center}.fs-btns button{font-family:'Jua';font-size:16px;padding:6px 16px;border:2px solid #24323a;border-radius:10px;cursor:pointer;background:#fff;box-shadow:0 2px 0 #24323a}
 #fsHook{background:#ffe48a!important}#fishUi.bite #fsHook{background:#d9483b!important;color:#fff}
+/* 🏡 생활 모드 */
+body.no-bath #panel, body.no-bath #course{display:none!important}
+#lifeBanner{position:absolute;left:50%;top:14px;transform:translate(-50%,-140%);z-index:6;text-align:center;background:linear-gradient(135deg,#fff4dc,#ffe48a);border:3px solid #24323a;border-radius:18px;padding:10px 22px;box-shadow:0 5px 0 #24323a;pointer-events:none;opacity:0;transition:transform .6s cubic-bezier(.2,1.4,.4,1),opacity .4s;max-width:94%}
+#lifeBanner.show{transform:translate(-50%,0);opacity:1}
+#lifeBanner b{display:block;font-family:'Jua';font-weight:400;font-size:clamp(22px,4vw,36px);color:#d9483b;text-shadow:0 2px 0 #fff}
+#lifeBanner span{display:block;font-size:clamp(11px,1.6vw,15px);margin-top:4px}
 </style>
 </head>
 <body>
@@ -309,6 +315,7 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
     <div id="loading">♨ 목욕탕 물 데우는 중…</div>
     <div id="travel" class="hidden"></div>
     <div id="mission" class="hidden"></div>
+    <div id="lifeBanner"><b>✨ 다양한 활동을 하세요! ✨</b><span>🎣 낚시 · ⛰️ 등산 · 🚄 기차 여행 · 🚒 소방관·👮 경찰관 · 💼 알바 · 🍜 맛집 · 🎤 노래방 · 🚗 드라이브</span></div>
     <div id="fishUi" class="hidden"><div class="fs-msg"></div><div class="fs-n"></div><div class="fs-btns"><button id="fsHook">🎣 낚아채기!</button><button id="fsStop">그만하기</button></div></div>
     <div id="fpUi" class="hidden"><div class="fp-cross"></div><div id="fpHint" class="fp-hint"></div><div class="fp-tip">👁️ 1인칭 · 드래그로 둘러보기 · V 3인칭</div></div>
     <div id="attract" class="hidden"><div class="at-top"><div class="at-logo">♨️</div><div class="at-title">행복탕 사장님</div><div class="at-sub">동네 목욕탕 3D 경영 · 생활 시뮬레이션 — 직접 해 보세요!</div></div><div id="atCap" class="at-cap"></div><div class="at-start">👆 아무 키나 누르거나 화면을 터치해서 시작!</div><div class="at-rank"><b>🏆 오늘의 사장님 TOP 5</b><div id="atRank"></div></div><div class="at-qr"><div id="atQR"></div><span>📱 내 폰으로 하기</span></div></div>
@@ -486,6 +493,7 @@ const sMat = (tex, opt={}) => new THREE.MeshLambertMaterial(Object.assign({map:t
 
 /* ======================= 건물 만들기 ======================= */
 function buildWorld(){
+  const n0 = scene.children.length; // 🏡 생활 모드에서 숨길 목욕탕 물체 시작점
   // 바닥
   const hallFloor = plane(20, 8.6, glossMat(tileTex('#cfe8f0','#9cc7d6',40,17.2), .2, 80), 0, 0, -2.85); hallFloor.rotation.x = -Math.PI/2; hallFloor.receiveShadow = true;
   const chFloor = plane(20, 6.4, glossMat(woodTex('#d9b07a',5,3), .1, 40), 0, 0.001, 4.65); chFloor.rotation.x = -Math.PI/2; chFloor.receiveShadow = true;
@@ -542,6 +550,7 @@ function buildWorld(){
   buildScrub();
   buildChanging();
   buildSteam();
+  W.bathObjs = scene.children.slice(n0);
   buildOutside();
 
   // 선택 표시 링
@@ -787,6 +796,7 @@ function buildOutside(){
   for(let i=0;i<7;i++){ const s = plane(.5, 3.0, M('#f4f4f4'), -1.8+i*.6, 0, 13.6); s.rotation.x = -Math.PI/2; }
   box(260, .15, .25, M('#9a9a9a'), 0, .06, 17.2);
   buildRoadExt();
+  const nb0 = scene.children.length;
   // 목욕탕 외벽, 간판, 굴뚝
   const brick = canvasTex(128,128,(g,w,h)=>{ g.fillStyle='#b5654a'; g.fillRect(0,0,w,h); g.fillStyle='#e8d8c8'; for(let r=0;r<8;r++){ g.fillRect(0,r*16,w,2); for(let c=0;c<4;c++) g.fillRect(((c*32)+(r%2)*16)%w, r*16, 2, 16); } }, 8, 2);
   box(20.9, 4.2, .35, sMat(brick), 0, 2.1, -7.65);
@@ -805,6 +815,7 @@ function buildOutside(){
     const s = new THREE.Sprite(m); scene.add(s);
     W.steam.push({s, k:'chimney', y0:13.4, ph:i/10, sp:.08, x0:7.2, z0:-9.4});
   }
+  W.bathObjs.push(...scene.children.slice(nb0));
   // 뒤쪽 아파트
   building(-12, -17, 7, 4, 11, '#e9e2d0', {cols:5, rows:7});
   building(-3, -19, 8, 4, 14, '#d6e4ea', {cols:6, rows:9, trim:'#7d98a3'});
@@ -825,7 +836,7 @@ function buildOutside(){
   W.hallLight = new THREE.PointLight('#ffe9c4', 0, 30); W.hallLight.position.set(0, 6, -1); scene.add(W.hallLight);
   buildApartment();
   buildParking();
-  buildBathUpgrade();
+  { const nb = scene.children.length; buildBathUpgrade(); W.bathObjs.push(...scene.children.slice(nb)); }
   buildSparkles();
   buildPlaza();
   buildFoodAlley();
@@ -973,6 +984,7 @@ function buildSparkles(){
       SPARK.list.push({sp, k, ph:rnd(0, 6), sz:rnd(.4, .65), r}); sp.renderOrder = 5; } });
 }
 function updateSparkles(){
+  if(NO_BATH){ SPARK.list.forEach(o => o.sp.visible = false); return; }
   if(!S || !S.fac) return;
   SPARK.list.forEach(o => { const clean = (S.fac[o.k] || {}).clean || 0, on = clean >= 90 && !PLAYER.inHome && !PLAYER.inStore && !PLAYER.inPrem;
     const tw = Math.max(0, Math.sin(T*2.4 + o.ph)); o.sp.material.opacity = on ? tw*.95 : 0; o.sp.scale.setScalar(o.sz*(.4 + tw*.8));
@@ -1030,9 +1042,9 @@ function showRankBoard(hi){
 }
 // ---------- 자동 시연 (어트랙트) ----------
 const TOUR = [
-  {t:[0, 0, -.5],   yaw:.35, pitch:.92, zoom:.95, cap:'♨️ 손님을 탕에 안내하고 동네 최고의 목욕탕을 만들어요'},
-  {t:[-1, 1.4, -4], yaw:.05, pitch:.42, zoom:.5,  cap:'🌡️ 온탕 39~42℃ · 냉탕 15~20℃, 온도와 청결을 관리해요'},
-  {t:[6, .8, 3],    yaw:-.6, pitch:.55, zoom:.55, cap:'🍫 코코아 자판기 · 🍌 바나나우유 · 👑 VIP와 👿 진상 손님까지!'},
+  {t:[0, 0, -.5],   yaw:.35, pitch:.92, zoom:.95, cap:'🏡 행복동에서 하고 싶은 걸 다 해 보세요!'},
+  {t:[-1, 1.4, -4], yaw:.05, pitch:.42, zoom:.5,  cap:'🌳 행복 공원 산책 · 🍂 떨어지는 낙엽'},
+  {t:[6, .8, 3],    yaw:-.6, pitch:.55, zoom:.55, cap:'🎣 행복천 낚시 · ⛰️ 행복산 등산 · 🚄 기차 여행 · 🚒 출동!'},
   {t:[18, 0, 12.5], yaw:.95, pitch:.42, zoom:.95, cap:'🚗 내 차로 동네를 드라이브 · 🚌 마을버스와 신호등'},
   {t:[72.5, 1, 1],  yaw:.1,  pitch:.6,  zoom:.8,  cap:'🏎️ 행복모터스에서 새 차를 사요'},
   {t:[100, 0, 6],   yaw:.25, pitch:.5,  zoom:1.0, cap:'🎤 코인노래방 · 🖥️ PC방 · 💇 미용실 · 🍢 분식, 모든 가게에서 알바와 놀이!'},
@@ -1047,7 +1059,7 @@ function startAttract(){
   if(BOOTH.attract) return;
   BOOTH.attract = true; BOOTH.t = 0; BOOTH.cap = -1;
   hideModal();
-  if(S.phase === 'menu'){ startRole('customer'); PLAYER.p.g.visible = false; PLAYER.tag.style.display = 'none'; }
+  if(PLAYER.inHome) exitHome(); if(FP.on) toggleFP(false); PLAYER.p.g.visible = false; PLAYER.tag.style.display = 'none';
   S.paused = false; PLAYER.follow = false;
   $('#attract').classList.remove('hidden');
   $('#atRank').innerHTML = rankHTML(5);
@@ -1073,10 +1085,63 @@ function setupBooth(){
   setInterval(() => {
     if(!BOOTH.on || BOOTH.attract) return;
     const idle = (performance.now() - BOOTH.last) / 1000;
-    if(S.phase === 'menu' && idle > 25) startAttract();
-    else if(S.phase !== 'menu' && idle > 90){ location.hash = 'attract'; location.reload(); }
+    if(idle > 60 && !WAKE.on) startAttract();
   }, 1000);
   if(location.hash === '#attract' && BOOTH.on) setTimeout(startAttract, 600);
+}
+/* ======================= 🏡 행복동 생활 모드 (목욕탕 없음 · 집에서 깨어나기) ======================= */
+// 사장/손님 고르기 없이 바로 시작: 우리 집 침대에서 일어나 "아… 뭐하지?" → 화면 위에 '다양한 활동을 하세요!'
+// 목욕탕(건물·시설·손님)은 숨기고 그 자리는 '행복 공원'으로. 지갑·개운함은 손님 모드 값을 그대로 써요.
+const NO_BATH = true;
+const WAKE = {on:false, t:0};
+function applyNoBath(){
+  if(!NO_BATH) return;
+  (W.bathObjs || []).forEach(o => o.visible = false);
+  for(let i=OBST.length - 1;i>=0;i--){ const r = OBST[i]; if(r[0] >= -10.8 && r[2] <= 10.8 && r[1] >= -8.1 && r[3] <= 7.6) OBST.splice(i, 1); }
+  for(let i=CAR_BLOCK.length - 1;i>=0;i--){ const r = CAR_BLOCK[i]; if(r[0] >= -10.8 && r[2] <= 10.8 && r[1] >= -8.1 && r[3] <= 7.6) CAR_BLOCK.splice(i, 1); }
+  ['warm','cold','sauna','scrub','milk'].forEach(k => { delete ZONES[k]; if(F[k] && F[k].plate) F[k].plate.style.display = 'none'; });
+  document.body.classList.add('no-bath');
+  const sg = $('#signBtn'); if(sg) sg.textContent = '🏡 행복동';
+  if(!W.lifePark) buildLifePark();
+}
+function buildLifePark(){
+  W.lifePark = true;
+  const g = plane(21.4, 15.4, sMat(canvasTex(128, 128, (c, w, h) => { c.fillStyle = '#8cc56a'; c.fillRect(0, 0, w, h); c.fillStyle = 'rgba(255,255,255,.08)'; c.fillRect(0, 0, w/2, h); }, 10, 8)), 0, .006, -.2); g.rotation.x = -Math.PI/2; g.receiveShadow = true;
+  const p1 = plane(2, 15.4, M('#e3d7bf'), 0, .009, -.2); p1.rotation.x = -Math.PI/2;
+  const p2 = plane(21.4, 2, M('#e3d7bf'), 0, .009, 0); p2.rotation.x = -Math.PI/2;
+  cyl(1.6, 1.7, .4, M('#c9c4b8'), 0, .2, 0, scene, 24); sph(.9, M('#ff8fb1'), 0, .6, 0, scene, 12); OBST.push([-1.7, -1.7, 1.7, 1.7]);   // 가운데 꽃 화단
+  [[-6, -5], [6, -5], [-7, 4], [7, 4], [-3, -6.4], [3, -6.4]].forEach(([x, z]) => tree(x, z, 1.15));
+  [[-4.5, 1.6, 0], [4.5, 1.6, 0], [-4.5, -1.6, Math.PI], [4.5, -1.6, Math.PI]].forEach(([x, z, r]) => { const b = group(x, 0, z); b.rotation.y = r; box(1.6, .1, .45, M('#a8703c'), 0, .45, 0, b); box(1.6, .4, .06, M('#a8703c'), 0, .7, -.22, b); OBST.push([x - .85, z - .3, x + .85, z + .3]); });
+  [[-8.5, -1], [8.5, -1]].forEach(([x, z]) => { for(let i=0;i<5;i++) sph(.22, M(pick(['#ff8fb1','#f2c94c','#e85d5d','#b48cff'])), x + rnd(-.8, .8), .25, z + rnd(-1.2, 1.2), scene, 8); });
+  box(.12, 2, .12, M('#6b4a30'), -1.4, 1, 7.0); box(.12, 2, .12, M('#6b4a30'), 1.4, 1, 7.0);
+  plane(3, .8, sMat(textTex('🌳 행복 공원', {w:400, h:110, bg:'#4e9a59', fg:'#ffffff', border:'#ffffff', font:60})), 0, 1.7, 7.07);
+}
+function startLife(silent){
+  if(S.phase === 'menu') startRole('customer');
+  applyNoBath();
+  enterHome();
+  if(silent) return;
+  WAKE.on = true; WAKE.t = 0; WAKE.said = false;
+  PLAYER.follow = false; cam.target.set(HX + 1.6, 0, -1); cam.zoom = .55; cam.yaw = .5; cam.pitch = .75;
+}
+function updateWake(dt){
+  const P = PLAYER, p = P.p; WAKE.t += dt; P.hintEl.style.display = 'none';
+  const t = WAKE.t;
+  if(t < 2.4){ setPose(p, 'lie', dt); p.g.rotation.y = 0; p.g.position.set(HX + 2.5, p.g.position.y, -.4); }
+  else if(t < 4.6){
+    if(!WAKE.said){ WAKE.said = true; pop(P.tag, '아… 뭐하지? 🤔'); speak('아… 뭐하지?'); beep(520, .1, 'sine', .03); }
+    p.seatY = .72; setPose(p, 'sit', dt); p.g.rotation.y = -Math.PI/2; p.g.position.set(HX + 1.45, p.g.position.y, -1.1);
+    p.head.rotation.y = Math.sin(t*2.2)*.5;   // 두리번두리번
+  }
+  else if(t < 5.4){ p.head.rotation.y = 0; setPose(p, 'stand', dt); p.g.rotation.y = -Math.PI/2; p.g.position.set(HX + .9, 0, -1.1); }
+  else { const k = Math.min(1, (t - 5.4)/1.2); setPose(p, 'walk', dt); P.x = HX + .9 - 1.6*k; P.z = -1.1 + .9*k; p.g.position.set(P.x, 0, P.z); p.g.rotation.y = Math.atan2(-1.6, .9); P.ry = p.g.rotation.y; }
+  cam.target.lerp(new THREE.Vector3(p.g.position.x, .6, p.g.position.z), Math.min(1, dt*2));
+  if(t >= 6.6){ WAKE.on = false; setPose(p, 'stand', 1); P.follow = true; cam.zoom = 1; cam.yaw = .32; cam.pitch = .92; showLifeBanner(); }
+}
+function showLifeBanner(){
+  const b = $('#lifeBanner'); b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+  speak('다양한 활동을 하세요!');
+  setTimeout(() => b.classList.remove('show'), 9000);
 }
 /* ======================= 🎒 가방 · ⚙️ 설정(닉네임·화질) ======================= */
 // 입력창에 글자를 칠 때는 게임 키(WASD·E 등)가 움직이지 않게 막아요 (가장 먼저 등록되는 리스너)
@@ -1430,7 +1495,7 @@ function updateBath(dt){
   if(BATH.fall) BATH.fall.offset.y += dt*.9;
   if(BATH.steam){ const k = (T*.6) % 1; BATH.steam.position.y = .5 + k*.5; BATH.steam.material.opacity = .45*(1 - k); }
 }
-function nearCocoa(){ return !PLAYER.inHome && !PLAYER.inStore && !PLAYER.inPrem && !DRIVE.active && !PLAYER.using && Math.hypot(PLAYER.x - BATH.cocoa.x, PLAYER.z - (BATH.cocoa.z + .75)) < 1.0; }
+function nearCocoa(){ return !NO_BATH && !PLAYER.inHome && !PLAYER.inStore && !PLAYER.inPrem && !DRIVE.active && !PLAYER.using && Math.hypot(PLAYER.x - BATH.cocoa.x, PLAYER.z - (BATH.cocoa.z + .75)) < 1.0; }
 function cocoaState(){ return S.cocoa || (S.cocoa = {stock:12, max:12}); }
 function useCocoa(){
   const st = cocoaState();
@@ -3356,6 +3421,7 @@ function updatePlayer(dt){
   if(P.basket) P.basket.visible = P.inStore && S.basket.length > 0;
   if(P.sheep) P.sheep.visible = S.role==='customer' && !!S.buff.sheep;
   if(S.role==='customer'){ const bath = !!PLAYER.using || PLAYER.jacuzzi > 0; if(bath !== PLAYER.bathLook) applyCustomerOutfit(bath); } // 목욕할 때만 옷 벗기
+  if(WAKE.on) return updateWake(dt);
   if(DRIVE.active) return updateCar(dt);
   if(STATION.riding){ P.hintEl.style.display = 'none'; return; }
   if(FISH.on){ if(k.KeyW || k.KeyA || k.KeyS || k.KeyD || k.ArrowUp || k.ArrowDown || k.ArrowLeft || k.ArrowRight) stopFishing(); else { P.hintEl.style.display = 'none'; p.g.position.set(P.x, groundAt(P.x, P.z), P.z); p.g.rotation.y = P.ry; return; } }
@@ -4749,7 +4815,7 @@ function buyMilkMe(){
   S.wallet -= 2500; S.fresh = Math.min(100, S.fresh+10); S.course.milk = true;
   pop(F.milk.plate, '🍌🥛 꿀꺽! 개운함 +10'); sfx.coin(); updateHUD();
 }
-function autoManage(){ // 손님 모드: 목욕탕은 NPC 사장님이 알아서 운영
+function autoManage(){ if(NO_BATH) return; // 손님 모드: 목욕탕은 NPC 사장님이 알아서 운영
   for(const c of [...S.queue]){
     const w = c.wishes[c.idx];
     if(c.yelling && Math.random() < .03){ c.yelling = false; c.yellT = rnd(8,12); c.tWish.textContent = wishText(c); }
@@ -4768,7 +4834,7 @@ function renderCourse(){
 function endDayCustomer(){
   S.phase = 'summary'; setSelected(null);
   const done = COURSE.filter(([k]) => S.course[k]).length;
-  const html = `<h2>🌙 ${S.day}일차 목욕 끝!</h2>
+  const html = `<h2>🌙 ${S.day}일차 하루 끝!</h2>
     <div class="sumrow"><span>오늘 날씨</span><b>${WEATHER[S.weather].icon} ${WEATHER[S.weather].name}</b></div>
     <div class="sumrow"><span>목욕 코스</span><b>${done}/5 완료</b></div>
     <div class="sumrow total"><span>😊 개운함</span><b>${Math.round(S.fresh)}점</b></div>
@@ -5173,12 +5239,14 @@ function newGame(){
   refreshBeds(); updateHUD();
 }
 function refreshBeds(){
+  if(NO_BATH) return;
   W.beds.forEach((b,i) => b.visible = i < S.fac.scrub.cap);
   W.seshin.forEach((p,i) => p.g.visible = i < S.fac.scrub.cap);
 }
 
 /* ======================= 손님 ======================= */
 function spawn(forceType){
+  if(NO_BATH) return;
   if(S.queue.length >= SEATS.length) return;
   const sp = pick(PEOPLE);
   const pool = [['warm',34],['sauna',24],['scrub',24],['cold',18]];
@@ -5906,7 +5974,7 @@ function init(){
   setupBooth();
   document.addEventListener('keydown', e => { if(e.key==='Escape') setSelected(null); });
   $('#loading').remove();
-  showTitle();
+  startLife(location.hash === '#attract');
   requestAnimationFrame(loop);
 }
 const fontsReady = document.fonts && document.fonts.load ? Promise.race([document.fonts.load('40px Jua'), new Promise(r => setTimeout(r, 1500))]) : Promise.resolve();

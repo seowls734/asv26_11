@@ -790,6 +790,7 @@ function buildOutside(){
   buildBathUpgrade();
   buildSparkles();
   buildPlaza();
+  buildFoodAlley();
   buildSeoul();
   box(1.6,.1,.45,M('#a8703c'),6,.45,9.1); box(1.6,.4,.06,M('#a8703c'),6,.7,8.9);
   box(.06,.42,.4,M('#555'),5.3,.21,9.1); box(.06,.42,.4,M('#555'),6.7,.21,9.1);
@@ -991,6 +992,7 @@ const TOUR = [
   {t:[100, 0, 6],   yaw:.25, pitch:.5,  zoom:1.0, cap:'🎤 코인노래방 · 🖥️ PC방 · 💇 미용실 · 🍢 분식, 모든 가게에서 알바와 놀이!'},
   {t:[-20, 4, -38], yaw:.5,  pitch:.22, zoom:1.1, cap:'🌉 한강공원 산책 · 오리배와 유람선'},
   {t:[0, 12, -45],  yaw:.0,  pitch:.12, zoom:1.7, cap:'🌃 밤이 되면 서울 야경과 남산 타워가 반짝여요', night:true},
+  {t:[-80, 1, -8],  yaw:.15, pitch:.5,  zoom:.9,  cap:'🍜 서울 맛집 골목 — 빈대떡·떡볶이·칼국수·곱창·족발·포장마차'},
   {t:[-37, 8, -19], yaw:.0,  pitch:.2,  zoom:1.05, cap:'🎆 행복 광장 불꽃축제 · 분수와 전구 불빛', night:true},
   {t:[24, 1, 2],    yaw:.3,  pitch:.7,  zoom:.7,  cap:'🏠 집에 방범 모드를 켜면 월패드가 침입을 감지해요! 🚨'}
 ];
@@ -1821,6 +1823,71 @@ function startNightView(){
 PLACE_T['행복 광장'] = {icon:'🎆', job:['광장 청소', ['🧹','🗑️','🎈','🌸']], acts:['festival', 'nightview']};
 ACTS.festival = {label:'🎆 불꽃축제 열기 (40초)', run: pl => { placeClose(); startFestival(); }};
 ACTS.nightview = {label:'🌃 서울 야경 보기 (25초)', run: pl => { placeClose(); startNightView(); }};
+/* ======================= 🍜 서울 맛집 골목 ======================= */
+// 왼쪽 상가 뒤 골목 (x -110 ~ -53, 가게 앞 z -11). 실제 상호가 아니라 '동네 이름 + 대표 음식'으로 만든 가상 맛집.
+// 가게 앞에서 E → 메뉴(바로 먹기 / 가방에 넣기) · 알바. 인기 맛집 앞엔 줄 서는 손님들.
+const FOOD_ALLEY = [
+  ['광장시장 빈대떡', '🥞', '#c0392b', '#fff4dc', [['🥞','녹두빈대떡',8000,10],['🍙','꼬마김밥',4000,6],['🥩','육회 비빔밥',12000,12]]],
+  ['신당동 떡볶이',   '🍢', '#e05a47', '#ffffff', [['🍢','즉석 떡볶이',12000,12],['🍜','라면 사리',2000,3],['🍚','볶음밥',3000,5]]],
+  ['명동 칼국수',     '🍜', '#2f7fc1', '#ffffff', [['🍜','칼국수',10000,11],['🥟','고기만두',8000,8]]],
+  ['종로 닭한마리',   '🍗', '#d9823b', '#fff4dc', [['🍲','닭한마리',25000,16],['🍜','칼국수 사리',2000,3]]],
+  ['왕십리 곱창',     '🔥', '#8b4a34', '#ffe48a', [['🔥','곱창 구이',18000,14],['🍚','볶음밥',3000,4]]],
+  ['장충동 족발',     '🍖', '#5a3424', '#ffe9c8', [['🍖','족발',35000,18],['🥢','막국수',8000,8]]],
+  ['마포 돼지갈비',   '🥩', '#a8323e', '#ffffff', [['🥩','돼지갈비',16000,14],['🍲','된장찌개',3000,5]]],
+  ['을지로 노가리',   '🐟', '#24323a', '#ffd34d', [['🐟','노가리 구이',4000,5],['🥚','계란말이',8000,8],['🥤','사이다',2000,2]]],
+  ['남대문 갈치조림', '🐠', '#c96a2b', '#ffffff', [['🐠','갈치조림',14000,13],['🍚','공깃밥',1000,2]]],
+  ['신림 순대타운',   '🌭', '#6b3f9a', '#ffffff', [['🌭','백순대 볶음',13000,12],['🍲','순대국',9000,10]]]
+];
+const FOOD_JOBS = {'🥞':['🥞','🍙','🥩','🥢'], '🍢':['🍢','🍜','🍚','🥚'], '🍜':['🍜','🥟','🥢','🍚'], '🍗':['🍗','🍲','🧄','🍜'], '🔥':['🔥','🍚','🥬','🥢'],
+  '🍖':['🍖','🥬','🥢','🍜'], '🥩':['🥩','🍲','🥬','🍚'], '🐟':['🐟','🥚','🥤','🥜'], '🐠':['🐠','🍚','🌶️','🥢'], '🌭':['🌭','🍲','🥬','🌶️']};
+function buildFoodAlley(){
+  const Z = -14, D = 5, front = Z + D/2;
+  // 골목 바닥 (붉은 벽돌)
+  const brick = canvasTex(128, 64, (g, w, h) => { g.fillStyle = '#b8806a'; g.fillRect(0, 0, w, h); g.fillStyle = '#9c6a56';
+    for(let r=0;r<4;r++) for(let c=0;c<4;c++) g.fillRect(((c*32) + (r%2)*16) % w, r*16, 30, 14); g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(0, 0, w, 2); }, 30, 3);
+  const fl = plane(60, 9, glossMat(brick, .05, 20), -81, .012, -7.2); fl.rotation.x = -Math.PI/2; fl.receiveShadow = true;
+  FOOD_ALLEY.forEach(([name, ico, bg, fg, menu], i) => {
+    const x = -110 + i*6, h = rnd(4.2, 6.2);
+    building(x, Z, 5.4, D, h, pick(['#f4efe4','#fff7e6','#efe4d2','#f3e3d3','#e9e2d0']), {sign:name, signBg:bg, signFg:fg, awning:bg, rows:Math.max(2, Math.round(h/1.8))});
+    // 세로 간판 + 홍등
+    const vs = mesh(new THREE.PlaneGeometry(.6, 2.0), new THREE.MeshLambertMaterial({map:textTex([ico, ...name.split(' ')[1].slice(0, 3).split('')], {w:96, h:330, bg, fg, border:fg, font:54}), emissive:'#ffffff', emissiveIntensity:.15}), x + 2.35, Math.min(h - 1.4, 3.6), front + .42, scene, false);
+    (W.nightGlow = W.nightGlow || []).push(vs.material);
+    [-1.9, 1.9].forEach(dx => { const l = sph(.2, glowMat('#e0342b', '#ff4a2a'), x + dx, 2.75, front + 1.05, scene, 10); l.scale.y = 1.3; });
+    // '동네 맛집' 인증 스티커
+    plane(.7, .7, sMat(textTex(['⭐', '맛집'], {w:128, h:128, bg:'#ffd34d', fg:'#5a3a00', border:'#5a3a00', font:40})), x - 1.6, 1.3, front + .02);
+    OBST.push([x - 2.8, Z - D/2 - .1, x + 2.8, front + .1]);
+    MENUS[name] = menu;
+    PLACE_T[name] = {icon:ico, job:['주방 보조', FOOD_JOBS[ico] || ['🍚','🥢','🍲','🥬']], acts:['food']};
+    addPlace(name, x, front + 1.0, null, 1.8);
+    // 인기 맛집 앞엔 줄
+    if(i % 3 === 1){ for(let k=0;k<3;k++){ const p = makePerson({name:'손님', skin:pick(['#f1c49c','#f6cfa9','#e9b98f']), hair:pick(['#2a2a2a','#6b4226','#3a2a20']), style:pick(['short','long','bun']), towel:pick(['#4a90d9','#e85d5d','#6fcf97','#f2c94c']), shirt:pick(['#4a90d9','#e85d5d','#6fcf97','#f2c94c']), s:rnd(.85, 1)});
+      p.g.position.set(x + 2.2 + k*.85, 0, front + 1.5); p.g.rotation.y = -Math.PI/2; p.pose = 'stand'; W.npcs.push({p, type:'owner'});
+      OBST.push([x + 2.2 + k*.85 - .3, front + 1.2, x + 2.2 + k*.85 + .3, front + 1.8]); } }
+  });
+  // 골목 입구 아치 (광장 쪽)
+  const ax = -53.5, az = -7.2;
+  [-3.6, 3.6].forEach(dz => { box(.4, 4.6, .4, M('#24323a'), ax, 2.3, az + dz); OBST.push([ax - .25, az + dz - .25, ax + .25, az + dz + .25]); });
+  box(.5, 1.0, 7.6, M('#24323a'), ax, 4.7, az);
+  const arch = mesh(new THREE.PlaneGeometry(7.0, .8), new THREE.MeshLambertMaterial({map:textTex('🍜 서울 맛집 골목 🍢', {w:768, h:96, bg:'#24323a', fg:'#ffd34d', border:false, font:62}), emissive:'#ffffff', emissiveIntensity:.15, side:THREE.DoubleSide}), ax + .27, 4.7, az, scene, false);
+  arch.rotation.y = Math.PI/2; (W.nightGlow = W.nightGlow || []).push(arch.material);
+  // 골목 위 홍등 줄
+  for(let x=-108;x<=-56;x+=2.2){ const l = sph(.17, glowMat('#ff6a3a', '#ff4a2a'), x, 4.2 - Math.abs(Math.sin(x*.7))*.3, -9.3, scene, 8); l.scale.y = 1.3; }
+  // 포장마차 (호떡·붕어빵·어묵)
+  [[-95, '포장마차 호떡'], [-77, '포장마차 붕어빵'], [-62, '포장마차 어묵']].forEach(([x, name]) => {
+    const g = group(x, 0, -5.4);
+    box(2.2, .9, 1.0, M('#c8ccd2'), 0, .45, 0, g); box(2.3, .06, 1.1, M('#8a939b'), 0, .92, 0, g);
+    const tent = mesh(new THREE.BoxGeometry(2.6, 1.6, 1.8), new THREE.MeshLambertMaterial({color:'#e85d1e', transparent:true, opacity:.88, emissive:'#ff7a2a', emissiveIntensity:.1}), 0, 1.75, -.1, g, false);
+    (W.nightGlow = W.nightGlow || []).push(tent.material);
+    [-1.2, 1.2].forEach(dx => box(.06, 2.5, .06, M('#5b6670'), dx, 1.25, .75, g));
+    plane(1.8, .45, sMat(textTex(name.split(' ')[1], {w:384, h:96, bg:'#fff4dc', fg:'#c0392b', border:'#c0392b', font:56})), 0, 2.2, .82, g);
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({map:steamTex, transparent:true, opacity:.5, depthWrite:false})); s.scale.set(.8, .8, 1); s.position.set(x, 1.4, -5.1); scene.add(s);
+    OBST.push([x - 1.2, -6.0, x + 1.2, -4.9]);
+  });
+  MENUS['포장마차 호떡'] = [['🥞','꿀호떡',1500,3],['🥞','씨앗호떡',2000,4]];
+  MENUS['포장마차 붕어빵'] = [['🐟','팥 붕어빵 3개',2000,3],['🐟','슈크림 붕어빵 3개',2000,3]];
+  MENUS['포장마차 어묵'] = [['🍢','어묵 꼬치',1000,2],['🍢','떡꼬치',1500,3]];
+  ['포장마차 호떡', '포장마차 붕어빵', '포장마차 어묵'].forEach((n, i) => { PLACE_T[n] = {icon:'🏮', job:['포장마차 일손', ['🥞','🐟','🍢','🥤']], acts:['food']}; addPlace(n, [-95, -77, -62][i], -4.1, null, 1.6); });
+}
 /* ======================= 행복모터스 (자동차 매장 + 고급 자동차 모델) ======================= */
 // 가상 브랜드 '행복모터스'. 차 앞쪽 = 로컬 +x (내 차와 같은 방향). 매장은 연장된 길 x 62.5~82.5 에 있어요.
 const CAR_MODELS = {

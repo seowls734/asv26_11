@@ -70,6 +70,7 @@
 14. **역할**: `startRole`, `applyRoleLook`, `useFacility/finishMe`(손님이 직접 이용), `autoManage`
 15. **프리미엄**: `PREM_PRICE = 1,000,000`, `premDoor`, `enterPrem/exitPrem`, `soakJacuzzi`, 숙면 보너스(`S.sleptPrem`)
 16. **관리자**: `ADMIN`, `openAdmin`, `adminAction`
+16-9. **🍜 서울 맛집 골목**: `FOOD_ALLEY`(10곳: 광장시장 빈대떡·신당동 떡볶이·명동 칼국수·종로 닭한마리·왕십리 곱창·장충동 족발·마포 돼지갈비·을지로 노가리·남대문 갈치조림·신림 순대타운 — 실제 상호 아님, 동네+음식), `buildFoodAlley`(x -110~-56 간격 6, 가게 앞 z -11.5, 벽돌 골목·홍등 줄·입구 아치 x -53.5·인기 맛집 줄 서는 손님·포장마차 3곳 호떡/붕어빵/어묵). 각 가게는 `MENUS`/`PLACE_T`/`addPlace`로 등록 → E로 먹기·가방·알바.
 16-8. **🎆 행복 광장·불꽃축제·서울 야경**: `PLAZA`(중심 -37, -11: 원형 포장·분수 물줄기 `PLAZA.jets`·전구 줄·벤치·은행나무·LED 전광판·'행복 광장' 아치·관람객 `PLAZA.crowd`), `buildPlaza`(buildOutside에서). 안내판 `addPlace('행복 광장')` → `ACTS.festival`(`startFestival`: 40초 밤+불꽃) / `ACTS.nightview`(`startNightView`: 25초 밤+강 건너 전망). 불꽃 `FW`(`fwLaunch` 로켓 → `fwBurst` Points 입자: peony/ring/willow/double, 섬광 PointLight `FW.light`), `updateFireworks`. 밤 강제: `FW.night`. 영업 끝난 밤엔 가끔 저절로, 전시 시연에도 불꽃 장면.
 16-7. **🎪 전시(부스) 모드·🏆 1일 챌린지**: `?booth` 주소 또는 설정 '전시 모드'(`SET.booth`) → `BOOTH`. 시작 화면에서 25초 무입력 → `startAttract()`(손님 모드로 동네를 살리고 `TOUR` 카메라 투어 7초씩, `#attract` 오버레이: 제목·장면 설명·시작 버튼·TOP5·QR, 밤 장면은 `ATTRACT.night`), 아무 입력 → `#title`로 새로고침. 게임 중 90초 무입력 → `#attract`로 새로고침. 시작 화면 '1일 챌린지' → `startChallenge`(`S.challenge`), 하루 끝 `endChallenge` 점수(`challengeScore`) → 이름 등록 → `showRankBoard`(`localStorage['hbt_rank']` TOP10). QR은 `QR_SVG`(인라인 SVG, 사이트 주소).
 16-6. **🎒 가방 · ⚙️ 설정**: HUD `#bagBtn`(B 키) → `openBag()`, `S.bag`(id → {ico,name,qty,kind:'food'|'drink'|'toy',fresh}), `bagAdd/bagUse`, 최대 `BAG_MAX`=24. 음식 메뉴에서 '😋 바로 먹기 / 🎒 가방에 넣기', 문구점 뽑기 상품은 자동으로 가방에. 소지품(휴대폰·차·머리·안경·펫·집)도 표시. HUD `#setBtn` → `openSettings()`: 닉네임(`SET.nick`, 최대 8자, 이름표 `applyNameTag`/`myName`), 화질 `QUALITY`(ultra/sharp/fast → `applyQuality`: pixelRatio 슈퍼샘플링·텍스처 anisotropy `MAX_ANISO`·그림자 해상도), 소리. 설정은 `localStorage['hbt_settings']`(try/catch). 입력창에 글자 칠 때 게임 키 막기: `typing(e)` + document keydown 가드.
@@ -147,3 +148,4 @@
 27. 자동차 구매 → 🔑 차 키가 가방에, 가방에서 꺼내면 내 옆에 차가 나와 바로 운전 (`deliverCar`)
 28. 👁️ 1인칭 시점 (V 키·카메라 버튼, 걷기·운전 모두)
 29. 🎆 행복 광장(분수·전구·관람객), 불꽃축제 이벤트, 서울 야경 감상
+30. 🍜 서울 맛집 골목 (맛집 10곳 + 포장마차 3곳, 줄 서는 손님)

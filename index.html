@@ -278,6 +278,13 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
 .dp-card{border-radius:12px;padding:8px;margin:6px 0;color:#fff;animation:msBlink 1s infinite;border:3px solid #ffd34d}.dp-card.fire{background:#b8281f}.dp-card.police{background:#1f3b73}
 .dp-h{font-family:'Jua';font-size:16px}.dp-b{font-size:13px;margin:6px 0;line-height:1.4}
 .dp-card button{width:100%;font-family:'Jua';font-size:16px;padding:8px;border:2px solid #24323a;border-radius:10px;background:#ffd34d;cursor:pointer}.dp-s{font-family:'Jua';font-size:13px;background:rgba(0,0,0,.25);border-radius:8px;padding:5px}
+/* 🎣 낚시 */
+#fishUi{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);z-index:5;background:rgba(255,250,242,.96);border:3px solid #24323a;border-radius:16px;padding:8px 14px;text-align:center;box-shadow:0 4px 0 #24323a;min-width:min(420px,90%)}
+#fishUi.hidden{display:none}#fishUi.bite{animation:fsBite .25s infinite;border-color:#d9483b}
+@keyframes fsBite{50%{transform:translateX(-50%) scale(1.05)}}
+.fs-msg{font-family:'Jua';font-size:17px}.fs-n{font-size:12px;opacity:.7;margin:2px 0 6px}
+.fs-btns{display:flex;gap:8px;justify-content:center}.fs-btns button{font-family:'Jua';font-size:16px;padding:6px 16px;border:2px solid #24323a;border-radius:10px;cursor:pointer;background:#fff;box-shadow:0 2px 0 #24323a}
+#fsHook{background:#ffe48a!important}#fishUi.bite #fsHook{background:#d9483b!important;color:#fff}
 </style>
 </head>
 <body>
@@ -302,6 +309,7 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
     <div id="loading">♨ 목욕탕 물 데우는 중…</div>
     <div id="travel" class="hidden"></div>
     <div id="mission" class="hidden"></div>
+    <div id="fishUi" class="hidden"><div class="fs-msg"></div><div class="fs-n"></div><div class="fs-btns"><button id="fsHook">🎣 낚아채기!</button><button id="fsStop">그만하기</button></div></div>
     <div id="fpUi" class="hidden"><div class="fp-cross"></div><div id="fpHint" class="fp-hint"></div><div class="fp-tip">👁️ 1인칭 · 드래그로 둘러보기 · V 3인칭</div></div>
     <div id="attract" class="hidden"><div class="at-top"><div class="at-logo">♨️</div><div class="at-title">행복탕 사장님</div><div class="at-sub">동네 목욕탕 3D 경영 · 생활 시뮬레이션 — 직접 해 보세요!</div></div><div id="atCap" class="at-cap"></div><div class="at-start">👆 아무 키나 누르거나 화면을 터치해서 시작!</div><div class="at-rank"><b>🏆 오늘의 사장님 TOP 5</b><div id="atRank"></div></div><div class="at-qr"><div id="atQR"></div><span>📱 내 폰으로 하기</span></div></div>
     <div id="phone" class="hidden"><div class="ph-body"><div class="ph-notch"></div><button id="phClose" title="닫기">✕</button><div class="ph-status"><span id="phTime">06:00</span><span>📶 🔋</span></div><div class="ph-screen" id="phScreen"></div><div class="ph-home" id="phHome" title="홈 화면"></div></div></div>
@@ -827,6 +835,7 @@ function buildOutside(){
   buildJobStations();
   buildMilkTruck();
   buildMountain();
+  buildRiver();
   buildLeaves();
   buildSeoul();
   box(1.6,.1,.45,M('#a8703c'),6,.45,9.1); box(1.6,.4,.06,M('#a8703c'),6,.7,8.9);
@@ -1107,6 +1116,7 @@ function renderBagBadge(){ const el = $('#bagBtn'); if(el) el.dataset.n = bagCou
 function eatEffect(fresh){ if(S.role === 'customer'){ gainFresh(fresh); updateHUD(); } S.buff.snack = true; renderBuffs(); return S.role === 'customer' ? `😊 개운함 +${fresh} · 🍢 걷는 속도 +15%` : '💪 힘이 나요! · 🍢 걷는 속도 +15%'; }
 function bagUse(id){
   const it = bag()[id]; if(!it) return;
+  if(it.kind === 'rod') return startFishing(it);
   if(it.kind === 'car'){
     if(PLAYER.inHome || PLAYER.inStore || PLAYER.inPrem || PLAYER.inStation || PLAYER.using) return toast('🚗 차는 밖에서 꺼낼 수 있어요');
     if(DRIVE.active) return toast('이미 운전 중이에요');
@@ -1132,7 +1142,7 @@ function openBag(){
   const slots = [];
   for(let i=0;i<Math.max(12, Math.ceil(items.length/6)*6);i++){
     const it = items[i];
-    slots.push(it ? `<button class="bag-slot" data-id="${it.id}" title="${it.name}${it.desc ? ' · ' + it.desc : ''}"><span class="bi">${it.ico}</span><span class="bn">${it.name}</span>${it.qty > 1 ? `<b class="bq">×${it.qty}</b>` : ''}<span class="bu">${it.kind === 'food' ? '먹기' : it.kind === 'drink' ? '마시기' : it.kind === 'car' ? '타기' : '자랑'}</span></button>` : `<div class="bag-slot empty"></div>`);
+    slots.push(it ? `<button class="bag-slot" data-id="${it.id}" title="${it.name}${it.desc ? ' · ' + it.desc : ''}"><span class="bi">${it.ico}</span><span class="bn">${it.name}</span>${it.qty > 1 ? `<b class="bq">×${it.qty}</b>` : ''}<span class="bu">${it.kind === 'food' ? '먹기' : it.kind === 'drink' ? '마시기' : it.kind === 'car' ? '타기' : it.kind === 'rod' ? '낚시' : '자랑'}</span></button>` : `<div class="bag-slot empty"></div>`);
   }
   showModal(`<h2>🎒 ${myName()}의 가방 <small style="font-size:14px;opacity:.7">${bagCount()}/${BAG_MAX}</small></h2>
     <p style="font-size:13px;opacity:.75">음식 가게에서 '가방에 넣기'를 하면 여기 담겨요. 칸을 누르면 먹거나 꺼내 볼 수 있어요.</p>
@@ -2542,7 +2552,7 @@ function buildMountain(){
     if(i % 6 === 0){ const px = mx + Math.cos(st.rotation.y + Math.PI/2)*.95, pz = mz - Math.sin(st.rotation.y + Math.PI/2)*.95; cyl(.05, .06, .9, M('#6b4a30'), px, mtnY(px, pz) + .45, pz, scene, 6); }
   }
   // 입구 표지판 (큰길 건너 인도)
-  const sx = pts[0][0], sz = 20.6;
+  const sx = pts[0][0], sz = 19.45;
   box(.15, 2.6, .15, M('#6b4a30'), sx - 1.3, 1.3, sz); box(.15, 2.6, .15, M('#6b4a30'), sx + 1.3, 1.3, sz);
   const sg = plane(3, 1.1, sMat(textTex(['⛰️ 행복산 등산로', '정상까지 약 900m · 해발 340m'], {w:512, h:190, bg:'#5a3a1d', fg:'#fff4dc', border:'#c98a2e', font:46})), sx, 2.1, sz - .08); sg.rotation.y = Math.PI;
   box(3.2, .3, .4, M('#8b4a34'), sx, 2.85, sz);
@@ -2616,6 +2626,126 @@ function updateLeaves(dt){
   }
   LEAF.mesh.instanceMatrix.needsUpdate = true;
 }
+/* ======================= 🏞️ 행복천 · 🎣 낚시 ======================= */
+// 행복탕 앞 큰길 건너(맞은편 인도와 행복산 사이) 시냇물 z 20.3~23.7, 가운데(x 0)에 나무다리.
+// '🎣 행복 낚시점'(x -8)에서 낚싯대를 사면 가방에 들어가요 → 강가에서 가방의 낚싯대를 누르면 낚시 시작!
+const RIVER = {z0:20.3, z1:23.7, zc:22, tex:null};
+const RODS = [['bamboo', '대나무 낚싯대', 10000, 1, '기본 낚싯대'], ['carbon', '카본 낚싯대', 30000, 2, '큰 물고기가 더 잘 물려요'], ['gold', '황금 낚싯대', 80000, 3, '전설의 황금 잉어도 노려볼 만해요!']];
+const FISHES = [ // [아이콘, 이름, 값, 기본 확률, 등급]
+  ['👢', '낡은 장화', 0, 10, '꽝'], ['🐟', '피라미', 1000, 32, '흔함'], ['🐟', '붕어', 2000, 25, '흔함'], ['🐠', '잉어', 4000, 14, '보통'],
+  ['🐡', '메기', 6000, 9, '보통'], ['🐠', '쏘가리', 10000, 6, '희귀'], ['🦐', '민물새우', 1500, 10, '흔함'], ['✨', '황금 잉어', 30000, 1, '전설']];
+const FISH = {on:false, state:'idle', t:0, wait:0, win:1, tier:1, rod:null, line:null, bob:null, rodMesh:null, ui:null, catchN:0};
+function buildRiver(){
+  RIVER.tex = canvasTex(256, 64, (g, w, h) => { g.fillStyle = '#4f9cd0'; g.fillRect(0, 0, w, h); for(let i=0;i<40;i++){ g.strokeStyle = `rgba(255,255,255,${rnd(.1, .3)})`; g.lineWidth = 2; const x = rnd(0, w), y = rnd(0, h); g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 8, y - 3, x + 18, y); g.stroke(); } }, 60, 1);
+  const water = plane(240, RIVER.z1 - RIVER.z0, new THREE.MeshPhongMaterial({map:RIVER.tex, color:'#ffffff', shininess:110, specular:'#ffffff', envMap:envTex(), combine:THREE.MixOperation, reflectivity:.18}), 0, .03, RIVER.zc);
+  water.rotation.x = -Math.PI/2;
+  // 돌 둑 + 갈대
+  [RIVER.z0 - .12, RIVER.z1 + .12].forEach(z => { box(240, .28, .26, M('#9aa3a8'), 0, .12, z); for(let x=-110;x<110;x+=rnd(3, 6)){ if(Math.abs(x) < 3) continue; for(let k=0;k<3;k++) cyl(.02, .03, rnd(.6, 1.1), M(pick(['#c9b46a','#9aa85a','#b8a05a'])), x + rnd(-.3, .3), .4, z + (z < RIVER.zc ? .25 : -.25) + rnd(-.1, .1), scene, 4); } });
+  // 나무다리 (x 0)
+  const bg = group(0, 0, RIVER.zc);
+  box(3.0, .18, 4.6, M('#a8703c'), 0, .38, 0, bg);
+  for(let z=-2.1;z<=2.15;z+=.35) box(3.0, .04, .25, M('#8b5a2b'), 0, .49, z, bg);
+  [-1.45, 1.45].forEach(x => { box(.1, .7, 4.6, M('#8b5a2b'), x, .8, 0, bg); for(let z=-2.2;z<=2.3;z+=1.1) box(.14, .9, .14, M('#6b4422'), x, .7, z, bg); });
+  // 강은 못 건너요 (다리만 건널 수 있어요)
+  OBST.push([-112, RIVER.z0, -1.6, RIVER.z1], [1.6, RIVER.z0, 112, RIVER.z1]);
+  // 🎣 행복 낚시점 (강가 오두막, 큰길 쪽을 바라봄)
+  const sx = -8, sz = 18.75, sg = group(sx, 0, sz);
+  box(3.4, 2.4, 1.9, M('#c98a4e'), 0, 1.2, 0, sg); for(let y=.3;y<2.4;y+=.3) box(3.42, .04, 1.92, M('#a8703c'), 0, y, 0, sg);
+  const roof = mesh(new THREE.ConeGeometry(2.6, 1.1, 4), M('#2f7fc1'), 0, 2.95, 0, sg); roof.rotation.y = Math.PI/4; roof.scale.z = .7;
+  const sm = new THREE.MeshLambertMaterial({map:textTex('🎣 행복 낚시점', {w:512, h:110, bg:'#2f7fc1', fg:'#ffffff', border:'#ffffff', font:62}), emissive:'#ffffff', emissiveIntensity:.15});
+  (W.nightGlow = W.nightGlow || []).push(sm);
+  const sp = mesh(new THREE.PlaneGeometry(3.0, .62), sm, 0, 2.1, -.97, sg, false); sp.rotation.y = Math.PI;
+  box(1.6, .9, .4, M('#8b5a2b'), 0, .45, -1.15, sg);                      // 판매대
+  for(let i=0;i<4;i++){ const r = cyl(.025, .035, 2.2, M(['#c9b46a','#24323a','#d4af37','#c9b46a'][i]), -1.3 + i*.25, 1.3, -1.05, sg, 6); r.rotation.z = .25; }   // 걸려 있는 낚싯대
+  plane(.8, .5, sMat(textTex(['🐟', '물고기 삽니다'], {w:200, h:130, bg:'#fff4dc', fg:'#2f7fc1', border:'#2f7fc1', font:36})), 1.25, 1.5, -.97, sg).rotation.y = Math.PI;
+  OBST.push([sx - 1.75, sz - 1.4, sx + 1.75, sz + 1.0]);
+  addPlace('행복 낚시점', sx, 17.0, null, 2.0);
+  $('#fsHook').addEventListener('click', e => { e.stopPropagation(); fishClick(); });
+  $('#fsStop').addEventListener('click', e => { e.stopPropagation(); stopFishing(); });
+  renderer.domElement.addEventListener('pointerdown', () => { if(FISH.on) fishClick(); });
+}
+// ---------- 상점 ----------
+function openRodShop(pl){
+  const btns = RODS.map(([id, name, cost, tier, desc]) => [`🎣 ${name} · ${won(cost)}원`, () => {
+    if(bag()['rod_' + id]) return toast('이미 가방에 있어요!');
+    if(!payCost(cost)) return;
+    if(!bagAdd({id:'rod_' + id, ico:'🎣', name, kind:'rod', tier, desc})){ S[wKey()] += cost; updateHUD(); return; }
+    result(pl, `🎣 ${name} 구매!`, `가방(🎒 B)에 넣었어요. <b>강가</b>에서 가방의 낚싯대를 누르면 낚시를 시작해요. <small>(${desc})</small>`);
+  }]);
+  btns.push(['↩️ 뒤로', () => openPlace(pl)]);
+  showModal(`<h2>🎣 낚싯대 고르기</h2><p>좋은 낚싯대일수록 큰 물고기가 잘 물리고, 낚아챌 시간도 길어져요.</p>`, btns);
+}
+function sellFish(pl){
+  const b = bag(); let n = 0, total = 0;
+  Object.keys(b).forEach(k => { const it = b[k]; if(it.kind === 'fish'){ n += it.qty; total += (it.price || 0)*it.qty; delete b[k]; } });
+  if(!n) return result(pl, '🐟 물고기 팔기', '가방에 물고기가 없어요. 강에서 낚아 오세요!');
+  S[wKey()] += total; updateHUD(); sfx.coin(); renderBagBadge();
+  result(pl, '🐟 물고기를 팔았어요', `${n}마리 → <b>+${won(total)}원</b> 사장님: "싱싱하네~ 또 와요!"`);
+}
+// ---------- 낚시 ----------
+function nearRiverBank(){ return !PLAYER.inHome && !PLAYER.inStore && !PLAYER.inPrem && !PLAYER.inStation && !DRIVE.active && Math.abs(PLAYER.z - RIVER.zc) < 3.4 && Math.abs(PLAYER.x) > 1.8; }
+function startFishing(it){
+  if(!nearRiverBank()) return toast('🏞️ 강가에서 써요 — 행복탕 앞 큰길을 건너 시냇물 옆에 서요');
+  placeClose();
+  FISH.on = true; FISH.tier = it.tier || 1; FISH.rod = it; FISH.catchN = 0;
+  const side = PLAYER.z < RIVER.zc ? 1 : -1; PLAYER.ry = side > 0 ? 0 : Math.PI;
+  // 낚싯대·줄·찌
+  if(!FISH.rodMesh){
+    FISH.rodMesh = new THREE.Group(); const r = cyl(.02, .035, 2.4, M(it.tier === 3 ? '#d4af37' : it.tier === 2 ? '#24323a' : '#c9b46a'), 0, 1.2, 0, FISH.rodMesh, 6);
+    FISH.rodMesh.userData.r = r;
+    FISH.bob = new THREE.Group(); sph(.1, M('#e85d5d'), 0, .05, 0, FISH.bob, 10); sph(.1, M('#ffffff'), 0, -.05, 0, FISH.bob, 10).scale.y = .6; scene.add(FISH.bob);
+    FISH.line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({color:'#ffffff'})); scene.add(FISH.line);
+  }
+  FISH.rodMesh.userData.r.material = M(it.tier === 3 ? '#d4af37' : it.tier === 2 ? '#24323a' : '#c9b46a');
+  PLAYER.p.armR.add(FISH.rodMesh); FISH.rodMesh.position.set(0, -.35, .1); FISH.rodMesh.rotation.set(1.0, 0, 0);
+  FISH.rodMesh.visible = FISH.bob.visible = FISH.line.visible = true;
+  $('#fishUi').classList.remove('hidden');
+  fishCast();
+}
+function fishCast(){
+  FISH.state = 'wait'; FISH.t = 0; FISH.wait = rnd(2, 5.5) / (1 + (FISH.tier - 1)*.15);
+  FISH.bx = PLAYER.x + rnd(-.8, .8); FISH.bz = RIVER.zc + rnd(-.6, .6);
+  beep(500, .1, 'sine', .03);
+  fishMsg('🎣 찌를 던졌어요… 찌가 쏙 들어가면 <b>클릭</b>(또는 E)!', false);
+}
+function fishMsg(html, alert){ const ui = $('#fishUi'); ui.querySelector('.fs-msg').innerHTML = html; ui.classList.toggle('bite', !!alert); ui.querySelector('.fs-n').textContent = `오늘 잡은 물고기 ${FISH.catchN}마리 · ${FISH.rod ? FISH.rod.name : ''}`; }
+function fishClick(){
+  if(!FISH.on) return;
+  if(FISH.state === 'bite'){
+    FISH.state = 'reel'; FISH.t = 0;
+    // 등급에 따라 확률 조정
+    const pool = FISHES.map(f => [f, f[3]*(f[2] >= 6000 ? (1 + (FISH.tier - 1)*1.4) : f[2] === 0 ? 1/FISH.tier : 1)]);
+    let r = Math.random()*pool.reduce((a, p) => a + p[1], 0), got = pool[0][0]; for(const [f, w] of pool){ r -= w; if(r <= 0){ got = f; break; } }
+    const [ico, name, price, , grade] = got;
+    if(price > 0){ FISH.catchN++; bagAdd({id:'fish_' + name, ico, name, kind:'fish', price, desc:`${grade} · 팔면 ${won(price)}원`}); }
+    sfx.coin(); if(grade === '희귀' || grade === '전설'){ sfx.bell(); speak(`와! ${name}를 잡았어요!`); }
+    fishMsg(price > 0 ? `🎉 <b>${ico} ${name}</b> (${grade}) 잡았다! 가방에 넣었어요 <small>(${won(price)}원)</small>` : `😅 ${ico} ${name}… 꽝이에요!`, false);
+    if(FISH.catchN === 1 && price > 0) toast(funReward({key:'fishing'}, 'fish', 8));
+    setTimeout(() => { if(FISH.on) fishCast(); }, 1600);
+  } else if(FISH.state === 'wait'){ fishMsg('🙊 너무 빨라요! 물고기가 도망갔어요… 다시 던져요', false); beep(180, .12, 'sawtooth', .03); FISH.state = 'reel'; setTimeout(() => { if(FISH.on) fishCast(); }, 1000); }
+}
+function stopFishing(){
+  if(!FISH.on) return; FISH.on = false; FISH.state = 'idle';
+  if(FISH.rodMesh){ FISH.rodMesh.parent && FISH.rodMesh.parent.remove(FISH.rodMesh); FISH.bob.visible = FISH.line.visible = false; }
+  $('#fishUi').classList.add('hidden');
+  toast(`🎣 낚시 끝! 오늘 ${FISH.catchN}마리 — 낚시점에서 팔 수 있어요`);
+}
+function updateFishing(dt){
+  if(RIVER.tex) RIVER.tex.offset.x -= dt*.05;
+  if(!FISH.on) return;
+  FISH.t += dt;
+  const p = PLAYER.p; setPose(p, 'stand', dt); p.armR.rotation.x = -.9;
+  let dip = 0;
+  if(FISH.state === 'wait' && FISH.t >= FISH.wait){ FISH.state = 'bite'; FISH.t = 0; FISH.win = .9 + FISH.tier*.25; fishMsg('❗ 입질이다! 지금 <b>클릭!</b>', true); beep(880, .08, 'square', .05); setTimeout(() => beep(1100, .08, 'square', .05), 90); }
+  if(FISH.state === 'bite'){ dip = .18 + Math.sin(FISH.t*30)*.06; if(FISH.t > FISH.win){ FISH.state = 'reel'; fishMsg('💨 아까비! 물고기가 미끼만 먹고 갔어요', false); setTimeout(() => { if(FISH.on) fishCast(); }, 1100); } }
+  FISH.bob.position.set(FISH.bx, .06 + Math.sin(T*2.5)*.03 - dip, FISH.bz);
+  const tip = new THREE.Vector3(0, 2.4, 0); FISH.rodMesh.localToWorld(tip);
+  const pts = FISH.line.geometry.attributes.position; pts.setXYZ(0, tip.x, tip.y, tip.z); pts.setXYZ(1, FISH.bob.position.x, FISH.bob.position.y + .1, FISH.bob.position.z); pts.needsUpdate = true;
+  if(PLAYER.inHome || PLAYER.inStore || PLAYER.inPrem || PLAYER.inStation || DRIVE.active) stopFishing();
+}
+PLACE_T['행복 낚시점'] = {icon:'🎣', job:['낚시점 일손', ['🎣','🪱','🐟','🪣']], acts:['rods', 'sellFish']};
+ACTS.rods = {label:'🎣 낚싯대 사기', run: pl => openRodShop(pl)};
+ACTS.sellFish = {label:'🐟 물고기 팔기', run: pl => sellFish(pl)};
 /* ======================= 행복모터스 (자동차 매장 + 고급 자동차 모델) ======================= */
 // 가상 브랜드 '행복모터스'. 차 앞쪽 = 로컬 +x (내 차와 같은 방향). 매장은 연장된 길 x 62.5~82.5 에 있어요.
 const CAR_MODELS = {
@@ -3192,6 +3322,7 @@ function updateCar(dt){
 function honk(){ if(!DRIVE.active) return; beep(392,.25,'square',.05); beep(494,.25,'square',.04); }
 function interactMain(){
   if(modalOpen() || SEC.open) return;
+  if(FISH.on){ fishClick(); return; }
   if(DRIVE.active) return exitCar();
   if(PLAYER.using) return;
   if(STATION.riding) return;
@@ -3227,6 +3358,7 @@ function updatePlayer(dt){
   if(S.role==='customer'){ const bath = !!PLAYER.using || PLAYER.jacuzzi > 0; if(bath !== PLAYER.bathLook) applyCustomerOutfit(bath); } // 목욕할 때만 옷 벗기
   if(DRIVE.active) return updateCar(dt);
   if(STATION.riding){ P.hintEl.style.display = 'none'; return; }
+  if(FISH.on){ if(k.KeyW || k.KeyA || k.KeyS || k.KeyD || k.ArrowUp || k.ArrowDown || k.ArrowLeft || k.ArrowRight) stopFishing(); else { P.hintEl.style.display = 'none'; p.g.position.set(P.x, groundAt(P.x, P.z), P.z); p.g.rotation.y = P.ry; return; } }
   if(PLAYER.using){
     const a = SLOTS[PLAYER.using.k][PLAYER.using.i], sl = S.fac[PLAYER.using.k].slots[PLAYER.using.i];
     p.seatY = a.y !== undefined ? a.y : .51; p.g.rotation.y = 0;
@@ -5477,6 +5609,7 @@ function loop(ts){
     updateJob(dt);
     updateMilkTruck(dt);
     updateLeaves(dt);
+    updateFishing(dt);
     if(S.phase !== 'menu') checkSummit();
   }
   updateCamera();

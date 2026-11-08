@@ -1058,6 +1058,11 @@ function renderBagBadge(){ const el = $('#bagBtn'); if(el) el.dataset.n = bagCou
 function eatEffect(fresh){ if(S.role === 'customer'){ gainFresh(fresh); updateHUD(); } S.buff.snack = true; renderBuffs(); return S.role === 'customer' ? `😊 개운함 +${fresh} · 🍢 걷는 속도 +15%` : '💪 힘이 나요! · 🍢 걷는 속도 +15%'; }
 function bagUse(id){
   const it = bag()[id]; if(!it) return;
+  if(it.kind === 'car'){
+    if(PLAYER.inHome || PLAYER.inStore || PLAYER.inPrem || PLAYER.using) return toast('🚗 차는 밖에서 꺼낼 수 있어요');
+    if(DRIVE.active) return toast('이미 운전 중이에요');
+    placeClose(); setMyCar(it.carId, it.color); deliverCar(`🔑 ${it.name}로 ${CAR_MODELS[it.carId].name} 출발! (WASD 운전 · E 내리기)`); return;
+  }
   if(it.kind === 'food'){ it.qty--; const msg = eatEffect(it.fresh || 3); beep(520, .1, 'sine', .04); toast(`${it.ico} 냠냠! ${it.name} — ${msg}`); }
   else if(it.kind === 'drink'){ it.qty--; const msg = eatEffect(it.fresh || 4); beep(600, .1, 'sine', .04); toast(`${it.ico} 꿀꺽! ${it.name} — ${msg}`); }
   else { pop(PLAYER.tag, `${it.ico} ${it.name} 자랑하기!`); beep(880, .08, 'square', .03); }
@@ -1078,7 +1083,7 @@ function openBag(){
   const slots = [];
   for(let i=0;i<Math.max(12, Math.ceil(items.length/6)*6);i++){
     const it = items[i];
-    slots.push(it ? `<button class="bag-slot" data-id="${it.id}" title="${it.name}${it.desc ? ' · ' + it.desc : ''}"><span class="bi">${it.ico}</span><span class="bn">${it.name}</span>${it.qty > 1 ? `<b class="bq">×${it.qty}</b>` : ''}<span class="bu">${it.kind === 'food' ? '먹기' : it.kind === 'drink' ? '마시기' : '자랑'}</span></button>` : `<div class="bag-slot empty"></div>`);
+    slots.push(it ? `<button class="bag-slot" data-id="${it.id}" title="${it.name}${it.desc ? ' · ' + it.desc : ''}"><span class="bi">${it.ico}</span><span class="bn">${it.name}</span>${it.qty > 1 ? `<b class="bq">×${it.qty}</b>` : ''}<span class="bu">${it.kind === 'food' ? '먹기' : it.kind === 'drink' ? '마시기' : it.kind === 'car' ? '타기' : '자랑'}</span></button>` : `<div class="bag-slot empty"></div>`);
   }
   showModal(`<h2>🎒 ${myName()}의 가방 <small style="font-size:14px;opacity:.7">${bagCount()}/${BAG_MAX}</small></h2>
     <p style="font-size:13px;opacity:.75">음식 가게에서 '가방에 넣기'를 하면 여기 담겨요. 칸을 누르면 먹거나 꺼내 볼 수 있어요.</p>
@@ -1899,13 +1904,13 @@ function showCarModal(c){
   const wasPaused = S.paused; S.paused = true;
   const close = () => { S.paused = wasPaused; hideModal(); };
   const btns = [];
-  if(mine) btns.push(['🚗 바로 타기', () => { close(); deliverCar(`🚗 ${m.name} 운전 시작!`); }, 'primary']);
-  else if(owned) btns.push(['🔑 이 차 타고 출발!', () => { setMyCar(c.id, m.colors[c.ci]); close(); deliverCar(`🚗 ${m.name} 운전 시작!`); }, 'primary']);
+  if(mine) btns.push(['🎒 가방에서 키를 꺼내면 타요', () => { close(); toast('🎒 B 키(가방)에서 🔑 차 키를 누르면 바로 타요'); }, 'primary']);
+  else if(owned) btns.push(['🎒 가방에 키가 있어요', () => { close(); toast('🎒 B 키(가방)에서 🔑 차 키를 누르면 바로 타요'); }, 'primary']);
   else btns.push([`💳 구매하기 · ${won(price)}원`, () => {
     if(S[wallet] < price){ toast(`돈이 모자라요 💸 (${won(price)}원 필요)`); return; }
-    S[wallet] -= price; S.cars.push(c.id); sfx.coin(); sfx.bell(); updateHUD();
-    setMyCar(c.id, m.colors[c.ci]); close();
-    deliverCar(`🎉 ${m.name} 출고 완료! 바로 타고 출발해요 (WASD 운전 · E 내리기)`);
+    if(!bagAdd({id:'car_' + c.id, ico:'🔑', name:`${m.name} 차 키`, kind:'car', carId:c.id, color:m.colors[c.ci], desc:'꺼내면 바로 옆에 차가 나와요'})) return;
+    S[wallet] -= price; S.cars.push(c.id); sfx.coin(); sfx.bell(); updateHUD(); close();
+    toast(`🎉 ${m.name} 구매 완료! 🔑 차 키가 가방에 들어갔어요 — B(가방)에서 꺼내면 타요`);
   }, 'primary']);
   btns.push(['🎨 색 바꾸기', () => { c.ci = (c.ci + 1) % m.colors.length; c.car.userData.paint.color.set(m.colors[c.ci]); S.paused = wasPaused; showCarModal(c); }]);
   btns.push(['닫기', close]);
@@ -1921,7 +1926,8 @@ function showCarModal(c){
 // 산 차를 매장 앞 인도에 갖다 놓고 바로 태워요
 function deliverCar(msg){
   const D = DRIVE; if(D.active) return;
-  D.x = 72.5; D.z = 8.9; D.h = 0; D.speed = 0;
+  const q = {x:PLAYER.x + Math.sin(PLAYER.ry)*1.9, z:PLAYER.z + Math.cos(PLAYER.ry)*1.9}; collide(q, 1.05, CAR_BLOCK);
+  D.x = q.x; D.z = q.z; D.h = PLAYER.ry - Math.PI/2; D.speed = 0;
   D.car.position.set(D.x, 0, D.z); D.car.rotation.y = D.h;
   PLAYER.x = D.x; PLAYER.z = D.z;
   enterCar(); sfx.bell(); toast(msg);

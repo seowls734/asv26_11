@@ -789,6 +789,7 @@ function buildOutside(){
   buildParking();
   buildBathUpgrade();
   buildSparkles();
+  buildPlaza();
   buildSeoul();
   box(1.6,.1,.45,M('#a8703c'),6,.45,9.1); box(1.6,.4,.06,M('#a8703c'),6,.7,8.9);
   box(.06,.42,.4,M('#555'),5.3,.21,9.1); box(.06,.42,.4,M('#555'),6.7,.21,9.1);
@@ -990,6 +991,7 @@ const TOUR = [
   {t:[100, 0, 6],   yaw:.25, pitch:.5,  zoom:1.0, cap:'🎤 코인노래방 · 🖥️ PC방 · 💇 미용실 · 🍢 분식, 모든 가게에서 알바와 놀이!'},
   {t:[-20, 4, -38], yaw:.5,  pitch:.22, zoom:1.1, cap:'🌉 한강공원 산책 · 오리배와 유람선'},
   {t:[0, 12, -45],  yaw:.0,  pitch:.12, zoom:1.7, cap:'🌃 밤이 되면 서울 야경과 남산 타워가 반짝여요', night:true},
+  {t:[-37, 8, -19], yaw:.0,  pitch:.2,  zoom:1.05, cap:'🎆 행복 광장 불꽃축제 · 분수와 전구 불빛', night:true},
   {t:[24, 1, 2],    yaw:.3,  pitch:.7,  zoom:.7,  cap:'🏠 집에 방범 모드를 켜면 월패드가 침입을 감지해요! 🚨'}
 ];
 const SEG = 7; // 장면 하나 7초
@@ -1663,6 +1665,162 @@ function setPlayerGlasses(id){
   if(id === 'round'){ [-1, 1].forEach(s => { const r = new THREE.Mesh(new THREE.TorusGeometry(.065, .014, 6, 16), M('#3a2a20')); r.position.set(s*.09, .03, .258); g.add(r); }); box(.06, .014, .014, M('#3a2a20'), 0, .04, .26, g); }
   else { box(.42, .09, .035, M('#111111'), 0, .035, .258, g); box(.44, .02, .03, M('#d4af37'), 0, .085, .258, g); }
 }
+/* ======================= 🎆 행복 광장 · 서울 야경 · 불꽃축제 ======================= */
+// 광장: 천원샵·펫샵 뒤 (중심 -37, -11). 분수·전구 줄·관람객·LED 전광판·이벤트 버튼.
+// 광장 안내판에서 E → '🎆 불꽃축제 열기'(40초 밤 + 불꽃) / '🌃 서울 야경 보기'(25초 밤 + 강 건너 전망)
+// 영업이 끝난 밤에는 가끔 불꽃이 저절로 터져요.
+const PLAZA = {x:-37, z:-11, crowd:[], jets:[], bulbs:null, jetMat:null};
+const FW = {list:[], t:0, light:null, tex:null, festival:0, night:0, cheer:0};
+function buildPlaza(){
+  const P = PLAZA;
+  const pave = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#d8cfbf'; g.fillRect(0, 0, w, h);
+    for(let r=0;r<8;r++){ g.strokeStyle = r%2 ? '#c4b9a6' : '#e6dfd2'; g.lineWidth = 10; g.beginPath(); g.arc(w/2, h/2, 14 + r*15, 0, 7); g.stroke(); }
+    g.strokeStyle = 'rgba(120,100,80,.25)'; g.lineWidth = 2; for(let a=0;a<24;a++){ g.beginPath(); g.moveTo(w/2, h/2); g.lineTo(w/2 + Math.cos(a/24*6.283)*128, h/2 + Math.sin(a/24*6.283)*128); g.stroke(); } });
+  const fl = mesh(new THREE.CircleGeometry(10.5, 56), glossMat(pave, .06, 30), P.x, .013, P.z, scene, false); fl.rotation.x = -Math.PI/2; fl.receiveShadow = true;
+  const rim = mesh(new THREE.RingGeometry(10.5, 11.1, 56), M('#9a8f7f'), P.x, .015, P.z, scene, false); rim.rotation.x = -Math.PI/2;
+  // 분수 (3단 그릇 + 물줄기 8개 + 가운데 큰 물기둥)
+  const stone = M('#c9c4b8');
+  cyl(2.6, 2.8, .55, stone, P.x, .27, P.z, scene, 32);
+  const water = mesh(new THREE.CircleGeometry(2.35, 32), new THREE.MeshPhongMaterial({color:'#5fb4dc', shininess:120, specular:'#ffffff', envMap:envTex(), combine:THREE.MixOperation, reflectivity:.2, transparent:true, opacity:.9}), P.x, .56, P.z, scene, false); water.rotation.x = -Math.PI/2;
+  cyl(.35, .45, 1.6, stone, P.x, 1.1, P.z, scene, 16); cyl(1.2, .5, .25, stone, P.x, 1.9, P.z, scene, 24);
+  cyl(.2, .25, .7, stone, P.x, 2.3, P.z, scene, 12); cyl(.6, .3, .18, stone, P.x, 2.7, P.z, scene, 20);
+  P.jetMat = new THREE.MeshLambertMaterial({color:'#bfeaff', transparent:true, opacity:.55, emissive:'#5fb4dc', emissiveIntensity:.1, depthWrite:false});
+  const jetGeo = new THREE.CylinderGeometry(.05, .12, 1, 8, 1, true); jetGeo.translate(0, .5, 0);
+  for(let i=0;i<8;i++){ const a = i/8*Math.PI*2, j = new THREE.Mesh(jetGeo, P.jetMat); j.position.set(P.x + Math.cos(a)*1.9, .56, P.z + Math.sin(a)*1.9); j.rotation.set(Math.sin(a)*-.35, 0, Math.cos(a)*.35); scene.add(j); P.jets.push({m:j, ph:i*.7, base:1.4}); }
+  const big = new THREE.Mesh(new THREE.CylinderGeometry(.08, .18, 1, 10, 1, true).translate(0, .5, 0), P.jetMat); big.position.set(P.x, 2.8, P.z); scene.add(big); P.jets.push({m:big, ph:0, base:2.6});
+  OBST.push([P.x - 2.8, P.z - 2.8, P.x + 2.8, P.z + 2.8]);
+  // 전구 줄 (기둥 8개 사이를 늘어진 전구로 연결 — 밤에 반짝)
+  const poleR = 9.6, poles = [];
+  for(let i=0;i<8;i++){ const a = i/8*Math.PI*2 + Math.PI/8, x = P.x + Math.cos(a)*poleR, z = P.z + Math.sin(a)*poleR; cyl(.07, .09, 4.2, M('#5b6670'), x, 2.1, z, scene, 8); sph(.13, M('#d4af37'), x, 4.25, z, scene, 8); poles.push([x, z]); OBST.push([x - .15, z - .15, x + .15, z + .15]); }
+  const bulbM = glowMat('#fff2b8', '#ffd86a'), bulbC = [glowMat('#ff8fb1', '#ff5a8a'), glowMat('#8fd8ff', '#4ab8f0'), bulbM, glowMat('#b6f7a8', '#6fe08a')];
+  const bulbGeo = new THREE.SphereGeometry(.09, 8, 6);
+  for(let i=0;i<8;i++){ const [x0, z0] = poles[i], [x1, z1] = poles[(i + 1) % 8];
+    for(let k=1;k<12;k++){ const t = k/12, sag = Math.sin(t*Math.PI)*.9; const b = new THREE.Mesh(bulbGeo, bulbC[k % 4]); b.position.set(x0 + (x1 - x0)*t, 4.0 - sag, z0 + (z1 - z0)*t); scene.add(b); }
+    // 줄을 가운데 분수 꼭대기로도 연결
+    for(let k=1;k<10;k++){ const t = k/10, sag = Math.sin(t*Math.PI)*.7; const b = new THREE.Mesh(bulbGeo, bulbC[(k + i) % 4]); b.position.set(x0 + (P.x - x0)*t, 4.0 + (5.2 - 4.0)*t - sag, z0 + (P.z - z0)*t); scene.add(b); } }
+  cyl(.06, .06, 2.6, M('#5b6670'), P.x, 4.0, P.z, scene, 8); sph(.25, glowMat('#ffe48a', '#ffd34d'), P.x, 5.35, P.z, scene, 12);
+  // 벤치·은행나무
+  [[0, -7], [0, 7], [-7, 0], [7, 0]].forEach(([dx, dz]) => { const g = group(P.x + dx, 0, P.z + dz); g.rotation.y = Math.atan2(-dx, -dz);
+    box(1.8, .1, .5, M('#a8703c'), 0, .45, 0, g); box(1.8, .45, .07, M('#a8703c'), 0, .72, -.24, g); box(.07, .45, .45, M('#555'), -.8, .22, 0, g); box(.07, .45, .45, M('#555'), .8, .22, 0, g);
+    OBST.push([P.x + dx - 1, P.z + dz - 1, P.x + dx + 1, P.z + dz + 1]); });
+  [[-7.5, -7.5], [7.5, -7.5], [-7.5, 7.5], [7.5, 7.5]].forEach(([dx, dz]) => ginkgo(P.x + dx, P.z + dz, 1.15));
+  // LED 전광판 (광장 서쪽)
+  const bx = P.x - 12.2, bz = P.z;
+  box(.4, 6.4, .4, M('#3b4a5a'), bx, 3.2, bz - 3); box(.4, 6.4, .4, M('#3b4a5a'), bx, 3.2, bz + 3);
+  box(.3, 3.4, 7, M('#1d2329'), bx, 4.6, bz);
+  const ledT = canvasTex(700, 320, (g, w, h) => { const gr = g.createLinearGradient(0, 0, w, h); gr.addColorStop(0, '#1b1036'); gr.addColorStop(1, '#0f2742'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    g.fillStyle = 'rgba(255,255,255,.06)'; for(let y=0;y<h;y+=6) g.fillRect(0, y, w, 2);
+    g.textAlign = 'center'; g.fillStyle = '#ffe48a'; g.font = FONT(64); g.fillText('🎆 행복 광장 불꽃축제', w/2, 110);
+    g.fillStyle = '#ffffff'; g.font = FONT(40); g.fillText('광장 안내판에서 E 를 눌러 시작!', w/2, 190);
+    g.fillStyle = '#8fd8ff'; g.font = FONT(34); g.fillText('🌃 서울 야경 · 🎇 매일 밤 깜짝 불꽃', w/2, 260); });
+  const led = mesh(new THREE.PlaneGeometry(6.6, 3.0), new THREE.MeshBasicMaterial({map:ledT}), bx + .17, 4.6, bz, scene, false); led.rotation.y = Math.PI/2;
+  OBST.push([bx - .4, bz - 3.4, bx + .4, bz + 3.4]);
+  // 광장 이름 아치 (남쪽 입구)
+  const ax = P.x, az = P.z + 10.8;
+  [-2.6, 2.6].forEach(dx => box(.35, 4.2, .35, M('#d9483b'), ax + dx, 2.1, az));
+  box(5.6, .9, .4, M('#d9483b'), ax, 4.4, az);
+  plane(5.2, .7, sMat(textTex('✨ 행복 광장 ✨', {w:640, h:96, bg:'#d9483b', fg:'#fff4dc', border:false, font:60})), ax, 4.4, az + .21);
+  [-2.6, 2.6].forEach(dx => OBST.push([ax + dx - .25, az - .25, ax + dx + .25, az + .25]));
+  // 이벤트 안내판 (E로 불꽃축제·야경)
+  addPlace('행복 광장', P.x, P.z + 4.6, null, 2.2);
+  const kg = group(P.x, 0, P.z + 3.7); box(.12, 1.4, .12, M('#5b6670'), -.6, .7, 0, kg); box(.12, 1.4, .12, M('#5b6670'), .6, .7, 0, kg);
+  plane(1.5, .8, sMat(textTex(['🎆 불꽃축제', '🌃 야경 보기'], {w:320, h:170, bg:'#1b1036', fg:'#ffe48a', border:'#ffe48a', font:46})), 0, 1.45, .07, kg);
+  OBST.push([P.x - .7, P.z + 3.6, P.x + .7, P.z + 3.8]);
+  // 관람객 (북쪽 하늘을 바라봄)
+  const looks = [['#f1c49c','#2a2a2a','short','#e85d5d'], ['#f6cfa9','#6b4226','long','#4a90d9'], ['#e9b98f','#1d1d1d','bun','#f2c94c'], ['#f1c49c','#e8c15a','long','#6fcf97'], ['#d9a57a','#2a2a2a','short','#9b51e0'], ['#f6cfa9','#3a2a20','short','#ff8fb1'], ['#f1c49c','#c8ccd2','bald','#56ccf2'], ['#e9b98f','#6b4226','bun','#f2994a']];
+  looks.forEach(([skin, hair, style, shirt], i) => {
+    const a = Math.PI*.15 + i/looks.length*Math.PI*.7, rr = 5.2 + (i%2)*.9;
+    const p = makePerson({name:'관람객', skin, hair, style, towel:shirt, shirt, s:rnd(.85, 1.05)});
+    p.g.position.set(P.x + Math.cos(a)*rr, 0, P.z + Math.sin(a)*rr); p.g.rotation.y = Math.PI; p.pose = 'stand';
+    W.npcs.push({p, type:'owner'}); P.crowd.push({p, ph:rnd(0, 6)});
+  });
+  // 불꽃 텍스처·섬광
+  FW.tex = canvasTex(64, 64, (g, w, h) => { const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.3, 'rgba(255,255,255,.8)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
+  FW.light = new THREE.PointLight('#ffd6a0', 0, 160, 1.4); scene.add(FW.light);
+}
+// ---------- 불꽃 ----------
+const FW_COLORS = ['#ff4a6a', '#ffd34d', '#5fd0ff', '#7dff9a', '#ff8fff', '#ffffff', '#ff9a3c', '#b48cff'];
+function fwLaunch(near){
+  const x = near ? PLAZA.x + rnd(-9, 9) : rnd(-70, 40), z = near ? PLAZA.z - rnd(4, 12) : rnd(-50, -38), top = near ? rnd(16, 24) : rnd(26, 46);
+  const m = new THREE.SpriteMaterial({map:FW.tex, color:'#ffe9b0', transparent:true, depthWrite:false, blending:THREE.AdditiveBlending});
+  const s = new THREE.Sprite(m); s.scale.set(.7, .7, 1); s.position.set(x, 0, z); scene.add(s);
+  FW.list.push({kind:'rocket', s, x, z, y:0, top, v:rnd(26, 34), color:pick(FW_COLORS), type:pick(['peony', 'peony', 'ring', 'willow', 'double'])});
+  if(fwHearable()) beep(rnd(700, 900), .25, 'sine', .015);
+}
+function fwHearable(){ return FW.festival > 0 || (!PLAYER.inHome && !PLAYER.inStore && !PLAYER.inPrem && Math.hypot(PLAYER.x - PLAZA.x, PLAYER.z - PLAZA.z) < 40); }
+function fwBurst(r){
+  const n = r.type === 'ring' ? 80 : r.type === 'willow' ? 110 : 140, pos = new Float32Array(n*3), vel = [];
+  const sp = r.type === 'willow' ? rnd(7, 9) : rnd(11, 15);
+  for(let i=0;i<n;i++){
+    let vx, vy, vz;
+    if(r.type === 'ring'){ const a = i/n*Math.PI*2; vx = Math.cos(a)*sp; vy = Math.sin(a)*sp*.35; vz = Math.sin(a)*sp; }
+    else { const u = Math.random()*2 - 1, a = Math.random()*Math.PI*2, k = Math.sqrt(1 - u*u), m = r.type === 'double' && i%2 ? .55 : rnd(.85, 1); vx = k*Math.cos(a)*sp*m; vy = u*sp*m; vz = k*Math.sin(a)*sp*m; }
+    vel.push([vx, vy, vz]); pos.set([r.x, r.y, r.z], i*3);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const col = r.type === 'willow' ? '#ffcf6a' : r.color;
+  const mat = new THREE.PointsMaterial({size:r.type === 'willow' ? 1.9 : 2.4, map:FW.tex, color:col, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, opacity:1});
+  const pts = new THREE.Points(g, mat); pts.frustumCulled = false; scene.add(pts);
+  FW.list.push({kind:'burst', pts, pos, vel, n, life:0, max:r.type === 'willow' ? 3.2 : 2.3, drag:r.type === 'willow' ? .985 : .965, grav:r.type === 'willow' ? 5 : 3.2,
+    second:r.type === 'double' ? pick(FW_COLORS) : null});
+  FW.light.position.set(r.x, r.y, r.z); FW.light.color.set(col); FW.light.intensity = 3.2;
+  if(fwHearable()){ beep(rnd(55, 85), .45, 'triangle', .06); setTimeout(() => { for(let i=0;i<4;i++) setTimeout(() => beep(rnd(1800, 2600), .03, 'square', .008), i*70); }, 250); }
+}
+function updateFireworks(dt){
+  const night = W.night || 0;
+  if(FW.festival > 0) FW.festival -= dt;
+  if(FW.night > 0) FW.night -= dt;
+  // 발사 간격: 축제 중 > 시연 밤 장면 > 영업 끝난 밤(가끔)
+  FW.t -= dt;
+  const rate = FW.festival > 0 ? rnd(.25, .6) : (typeof BOOTH !== 'undefined' && BOOTH.attract && ATTRACT.night) ? rnd(.4, .8) : (night > .6 && S && S.phase === 'night') ? rnd(2.5, 5) : 0;
+  if(rate && FW.t <= 0){ FW.t = rate; fwLaunch(Math.random() < (FW.festival > 0 ? .35 : .15)); }
+  FW.light.intensity = Math.max(0, FW.light.intensity - dt*6);
+  for(let i=FW.list.length - 1;i>=0;i--){
+    const f = FW.list[i];
+    if(f.kind === 'rocket'){
+      f.y += f.v*dt; f.v *= .985; f.s.position.set(f.x + Math.sin(f.y*.6)*.15, f.y, f.z);
+      if(f.y >= f.top){ scene.remove(f.s); f.s.material.dispose(); FW.list.splice(i, 1); fwBurst(f); }
+      continue;
+    }
+    f.life += dt; const k = f.life / f.max;
+    for(let j=0;j<f.n;j++){ const v = f.vel[j]; v[0] *= f.drag; v[1] = v[1]*f.drag - f.grav*dt; v[2] *= f.drag;
+      f.pos[j*3] += v[0]*dt; f.pos[j*3 + 1] += v[1]*dt; f.pos[j*3 + 2] += v[2]*dt; }
+    f.pts.geometry.attributes.position.needsUpdate = true;
+    f.pts.material.opacity = Math.max(0, 1 - k*k) * (k > .55 ? (.75 + Math.random()*.25) : 1); // 끝무렵 반짝반짝
+    if(f.second && k > .35){ f.pts.material.color.set(f.second); f.second = null; }
+    if(k >= 1){ scene.remove(f.pts); f.pts.geometry.dispose(); f.pts.material.dispose(); FW.list.splice(i, 1); }
+  }
+  // 분수 물줄기 출렁 + 밤엔 빛남
+  PLAZA.jets.forEach(j => { j.m.scale.y = j.base*(.85 + Math.sin(T*3 + j.ph)*.15); });
+  if(PLAZA.jetMat) PLAZA.jetMat.emissiveIntensity = .1 + night*.8;
+  // 관람객: 축제 중이면 폴짝폴짝 + 만세
+  const party = FW.festival > 0 || (night > .6 && S && S.phase === 'night');
+  PLAZA.crowd.forEach(c => { const p = c.p;
+    p.g.position.y = party ? Math.max(0, Math.sin(T*6 + c.ph))*.18 : 0;
+    const up = party && Math.sin(T*3 + c.ph) > -.2;
+    p.armL.rotation.x = up ? -2.8 : 0; p.armR.rotation.x = up ? -2.8 : 0;
+    if(p.face) setExpr(p, party ? 'happy' : 'neutral'); });
+  if(FW.festival > 0 && FW.festival < dt + .05) toast('🎆 불꽃축제가 끝났어요! 다음에 또 봐요');
+}
+function fwCamera(skyline){
+  if(FP.on){ cam.yaw = 0; FP.pitch = skyline ? .1 : .45; return; }
+  PLAYER.follow = false;
+  if(skyline){ cam.target.set(-5, 9, -40); cam.yaw = .1; cam.pitch = .12; cam.zoom = 1.5; }
+  else { cam.target.set(PLAZA.x, 8, PLAZA.z - 8); cam.yaw = 0; cam.pitch = .2; cam.zoom = 1.05; }
+}
+function startFestival(){
+  FW.festival = 40; FW.night = 40; FW.t = 0;
+  speak('행복 광장 불꽃축제를 시작합니다!'); toast('🎆 불꽃축제 시작! (40초) — 움직이면 카메라가 다시 나를 따라와요');
+  fwCamera(false); for(let i=0;i<3;i++) setTimeout(() => fwLaunch(i === 1), i*250);
+}
+function startNightView(){
+  FW.night = 25; FW.t = 1;
+  speak('서울의 야경을 감상하세요'); toast('🌃 서울 야경 감상 (25초) — 한강 너머 빌딩과 남산 타워가 반짝여요');
+  fwCamera(true);
+}
+PLACE_T['행복 광장'] = {icon:'🎆', job:['광장 청소', ['🧹','🗑️','🎈','🌸']], acts:['festival', 'nightview']};
+ACTS.festival = {label:'🎆 불꽃축제 열기 (40초)', run: pl => { placeClose(); startFestival(); }};
+ACTS.nightview = {label:'🌃 서울 야경 보기 (25초)', run: pl => { placeClose(); startNightView(); }};
 /* ======================= 행복모터스 (자동차 매장 + 고급 자동차 모델) ======================= */
 // 가상 브랜드 '행복모터스'. 차 앞쪽 = 로컬 +x (내 차와 같은 방향). 매장은 연장된 길 x 62.5~82.5 에 있어요.
 const CAR_MODELS = {
@@ -3790,7 +3948,7 @@ function buildWeatherFx(){
 }
 function updateWeather(dt){
   const w = WEATHER[S.weather], fx = W.fx, k = Math.min(1, dt*1.5);
-  const nt = (S.phase==='night' || S.phase==='sleeping' || ATTRACT.night) ? 1 : 0;
+  const nt = (S.phase==='night' || S.phase==='sleeping' || ATTRACT.night || FW.night > 0) ? 1 : 0;
   W.night = (W.night||0) + (nt - (W.night||0)) * k;
   scene.background.lerp(new THREE.Color(w.sky).lerp(NIGHT_SKY, W.night), k); scene.fog.color.copy(scene.background);
   W.sun.intensity += (w.sun*(1 - W.night*.9) - W.sun.intensity)*k;
@@ -4493,6 +4651,7 @@ function loop(ts){
     updateBath(dt);
     updateSparkles();
     updateAttract(dt);
+    updateFireworks(dt);
   }
   updateCamera();
   followSun();

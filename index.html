@@ -1899,13 +1899,13 @@ function showCarModal(c){
   const wasPaused = S.paused; S.paused = true;
   const close = () => { S.paused = wasPaused; hideModal(); };
   const btns = [];
-  if(mine) btns.push(['✅ 지금 타는 차예요', close, 'primary']);
-  else if(owned) btns.push(['🔑 이 차로 바꾸기', () => { setMyCar(c.id, m.colors[c.ci]); close(); toast(`🚗 ${m.name}(으)로 바꿨어요!`); }, 'primary']);
+  if(mine) btns.push(['🚗 바로 타기', () => { close(); deliverCar(`🚗 ${m.name} 운전 시작!`); }, 'primary']);
+  else if(owned) btns.push(['🔑 이 차 타고 출발!', () => { setMyCar(c.id, m.colors[c.ci]); close(); deliverCar(`🚗 ${m.name} 운전 시작!`); }, 'primary']);
   else btns.push([`💳 구매하기 · ${won(price)}원`, () => {
     if(S[wallet] < price){ toast(`돈이 모자라요 💸 (${won(price)}원 필요)`); return; }
     S[wallet] -= price; S.cars.push(c.id); sfx.coin(); sfx.bell(); updateHUD();
     setMyCar(c.id, m.colors[c.ci]); close();
-    toast(`🎉 ${m.name} 출고 완료! 원래 내 차 자리에서 기다리고 있어요`);
+    deliverCar(`🎉 ${m.name} 출고 완료! 바로 타고 출발해요 (WASD 운전 · E 내리기)`);
   }, 'primary']);
   btns.push(['🎨 색 바꾸기', () => { c.ci = (c.ci + 1) % m.colors.length; c.car.userData.paint.color.set(m.colors[c.ci]); S.paused = wasPaused; showCarModal(c); }]);
   btns.push(['닫기', close]);
@@ -1917,6 +1917,14 @@ function showCarModal(c){
     <div class="sumrow total"><span>가격</span><b>${won(price)}원${S.role === 'customer' ? ' (손님 할부 특가)' : ''}</b></div>
     <div class="sumrow"><span>가진 돈</span><b>${won(S[wallet])}원</b></div>
     ${owned ? '<p>이미 갖고 있는 차예요.</p>' : ''}`, btns);
+}
+// 산 차를 매장 앞 인도에 갖다 놓고 바로 태워요
+function deliverCar(msg){
+  const D = DRIVE; if(D.active) return;
+  D.x = 72.5; D.z = 8.9; D.h = 0; D.speed = 0;
+  D.car.position.set(D.x, 0, D.z); D.car.rotation.y = D.h;
+  PLAYER.x = D.x; PLAYER.z = D.z;
+  enterCar(); sfx.bell(); toast(msg);
 }
 function setMyCar(id, color){
   const m = CAR_MODELS[id];

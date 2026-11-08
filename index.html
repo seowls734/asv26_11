@@ -271,6 +271,13 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
 .rd-bar button{font-family:'Jua';border:2px solid #24323a;border-radius:9px;background:#ffe48a;cursor:pointer;padding:3px 8px}
 .rd-tip{position:absolute;left:50%;bottom:62px;transform:translateX(-50%);background:rgba(36,50,58,.85);color:#fff;border-radius:10px;padding:4px 12px;font-size:13px}
 #rdDark{position:absolute;inset:0;background:#05070a;opacity:0;transition:opacity .4s;pointer-events:none}
+/* 🚨 출동 */
+#mission{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:8px;background:#24323a;color:#fff;border:3px solid #ffd34d;border-radius:14px;padding:6px 14px;font-family:'Jua';font-size:16px;box-shadow:0 3px 0 #000;white-space:nowrap;animation:msBlink 1s infinite}
+#mission.hidden{display:none}#mission i{font-style:normal;display:inline-block;font-size:20px;color:#ffd34d}#mission small{opacity:.7;font-family:'Gowun Dodum'}
+@keyframes msBlink{50%{border-color:#ff4a3a}}
+.dp-card{border-radius:12px;padding:8px;margin:6px 0;color:#fff;animation:msBlink 1s infinite;border:3px solid #ffd34d}.dp-card.fire{background:#b8281f}.dp-card.police{background:#1f3b73}
+.dp-h{font-family:'Jua';font-size:16px}.dp-b{font-size:13px;margin:6px 0;line-height:1.4}
+.dp-card button{width:100%;font-family:'Jua';font-size:16px;padding:8px;border:2px solid #24323a;border-radius:10px;background:#ffd34d;cursor:pointer}.dp-s{font-family:'Jua';font-size:13px;background:rgba(0,0,0,.25);border-radius:8px;padding:5px}
 </style>
 </head>
 <body>
@@ -294,6 +301,7 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
   <div id="stage">
     <div id="loading">♨ 목욕탕 물 데우는 중…</div>
     <div id="travel" class="hidden"></div>
+    <div id="mission" class="hidden"></div>
     <div id="fpUi" class="hidden"><div class="fp-cross"></div><div id="fpHint" class="fp-hint"></div><div class="fp-tip">👁️ 1인칭 · 드래그로 둘러보기 · V 3인칭</div></div>
     <div id="attract" class="hidden"><div class="at-top"><div class="at-logo">♨️</div><div class="at-title">행복탕 사장님</div><div class="at-sub">동네 목욕탕 3D 경영 · 생활 시뮬레이션 — 직접 해 보세요!</div></div><div id="atCap" class="at-cap"></div><div class="at-start">👆 아무 키나 누르거나 화면을 터치해서 시작!</div><div class="at-rank"><b>🏆 오늘의 사장님 TOP 5</b><div id="atRank"></div></div><div class="at-qr"><div id="atQR"></div><span>📱 내 폰으로 하기</span></div></div>
     <div id="phone" class="hidden"><div class="ph-body"><div class="ph-notch"></div><button id="phClose" title="닫기">✕</button><div class="ph-status"><span id="phTime">06:00</span><span>📶 🔋</span></div><div class="ph-screen" id="phScreen"></div><div class="ph-home" id="phHome" title="홈 화면"></div></div></div>
@@ -815,6 +823,7 @@ function buildOutside(){
   buildStationExterior();
   buildStationInterior();
   buildTrainInterior();
+  buildJobStations();
   buildSeoul();
   box(1.6,.1,.45,M('#a8703c'),6,.45,9.1); box(1.6,.4,.06,M('#a8703c'),6,.7,8.9);
   box(.06,.42,.4,M('#555'),5.3,.21,9.1); box(.06,.42,.4,M('#555'),6.7,.21,9.1);
@@ -1190,6 +1199,7 @@ function renderPhone(){
         <button class="ph-app" data-app="weather"><i style="background:#56a8e8">🌤️</i>날씨</button>
         <button class="ph-app" data-app="bank"><i style="background:#f2b632">💰</i>지갑</button>
         <button class="ph-app" data-app="rail"><i style="background:#1f5fae">🚄</i>행복레일${tickets().length ? `<b class="ph-badge">${tickets().length}</b>` : ''}</button>
+        <button class="ph-app" data-app="dispatch"><i style="background:#d9342b">🚨</i>출동${JOB.mission && JOB.mission.stage === 'call' ? '<b class="ph-badge">!</b>' : ''}</button>
         <button class="ph-app" data-app="msg"><i style="background:#6fcf97">💬</i>알림${(S.secLog||[]).length ? `<b class="ph-badge">${S.secLog.length}</b>` : ''}</button>
       </div>
       <div class="ph-widget">${on ? '🛡️ 방범 모드 <b style="color:#6fe08a">켜짐</b>' : '🔓 방범 모드 꺼짐'}</div>`;
@@ -1207,6 +1217,7 @@ function renderPhone(){
   } else if(SEC.app === 'bank'){
     scr.innerHTML = `<div class="ph-bar"><button data-app="home">‹</button>지갑</div><div class="ph-big">💳</div><div class="ph-state">${won(money)}원</div><p class="ph-note">${S.role === 'customer' ? '손님 모드 지갑이에요' : '행복탕 사장님 통장이에요'} · ${S.cars && S.cars.length ? '🚗 보유 차 ' + S.cars.length + '대' : '🚗 행복모터스에서 새 차를 사 보세요'}</p>`;
   } else if(SEC.app === 'rail'){ return railApp();
+  } else if(SEC.app === 'dispatch'){ return dispatchApp();
   } else if(SEC.app === 'msg'){
     scr.innerHTML = `<div class="ph-bar"><button data-app="home">‹</button>알림</div><div class="ph-list big">${(S.secLog||[]).map(l => `<div>🔔 ${l}</div>`).join('') || '<div>새 알림이 없어요</div>'}</div>`;
   }
@@ -2197,6 +2208,222 @@ function rideEnd(R){
   PLAYER.p.pose = 'stand';
 }
 function updateRideCamSway(){ if(STATION.riding){ camera.rotateZ(Math.sin(T*6.5)*.004*(RIDE.v/48)); camera.position.y += Math.sin(T*13)*.006*(RIDE.v/48); } }
+/* ======================= 🚒 소방서 · 🚓 경찰서 · 직업과 출동 ======================= */
+// 소방서(51, -12) · 경찰서(68, -14)에서 E → 입사. 직업이 있으면 가끔 📱 휴대폰으로 출동 지령이 와요.
+// 📱 '🚨 출동' 앱에서 [출동하기] → 소방차/경찰차가 내 옆에 나와요 → 목표 지점(빛기둥)까지 운전 →
+//   🔥 화재: 내려서 E로 물 뿌리기 / 🚨 도둑: 쫓아가서 E로 체포 → 완료하면 출동비 지급 (빨리 끝낼수록 보너스)
+const JOB = {mission:null, timer:30, veh:{}, prevCar:null, prevV:null, restore:false, beacon:null, siren:0, flash:0, fx:[], water:[]};
+const JOB_INFO = {
+  fire:  {name:'소방관', icon:'👨‍🚒', veh:'🚒 소방차', station:'행복 소방서', pay:60000},
+  police:{name:'경찰관', icon:'👮', veh:'🚓 경찰차', station:'행복 경찰서', pay:55000}
+};
+const INCIDENT_SPOTS = [['행복탕 앞', 2, 9], ['행복 편의점 앞', -15, 9], ['서울 맛집 골목', -80, -8.5], ['행복 광장', -37, -1.5], ['서울역 앞', 100, -4.5], ['행복모터스 앞', 72, 9], ['한강공원', 10, -28], ['행복아파트 앞', 24, 7], ['프리미엄 타워 앞', 30.5, -1.6], ['펫샵 앞', -37, 9], ['코인 노래방 거리', 100, 9]];
+const FIRE_SITU = ['쓰레기통에서 불이 났어요', '음식점 주방 연기 신고가 들어왔어요', '전기 콘센트 화재 신고예요', '고양이가 나무에 올라가 내려오지 못하고… 앗 불까지!'];
+const POLICE_SITU = ['가방 날치기 도둑이 도망치고 있어요', '편의점 과자 도둑이 달아났어요', '자전거 도둑이 나타났어요', '수상한 사람이 남의 차를 기웃거려요'];
+function buildJobStations(){
+  // ── 소방서 ──
+  const fx = 51, fz = -12, fw = 10, fd = 8;
+  const brick = canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#b8402e'; g.fillRect(0, 0, w, h); g.fillStyle = '#e8d8c8'; for(let r=0;r<8;r++){ g.fillRect(0, r*16, w, 2); for(let c=0;c<4;c++) g.fillRect(((c*32) + (r%2)*16) % w, r*16, 2, 16); } }, 5, 3);
+  box(fw, 6, fd, sMat(brick), fx, 3, fz); box(fw + .4, .4, fd + .4, M('#5a1d14'), fx, 6.2, fz);
+  box(2.2, 10, 2.2, sMat(brick), fx + fw/2 - 1.1, 5, fz - fd/2 + 1.1); box(2.6, .4, 2.6, M('#5a1d14'), fx + fw/2 - 1.1, 10.2, fz - fd/2 + 1.1); // 망루
+  [-2.4, 2.4].forEach(dx => { box(3.4, 3.6, .1, M('#e9ecef'), fx + dx, 1.8, fz + fd/2 + .02); for(let y=.4;y<3.6;y+=.45) box(3.3, .05, .12, M('#c8ccd2'), fx + dx, y, fz + fd/2 + .05); });
+  const fsg = new THREE.MeshLambertMaterial({map:textTex('🚒 행복 소방서 119', {w:640, h:110, bg:'#d9342b', fg:'#ffffff', border:'#ffffff', font:60}), emissive:'#ffffff', emissiveIntensity:.15});
+  (W.nightGlow = W.nightGlow || []).push(fsg); mesh(new THREE.PlaneGeometry(6, 1.0), fsg, fx, 4.7, fz + fd/2 + .05, scene, false);
+  OBST.push([fx - fw/2 - .1, fz - fd/2 - .1, fx + fw/2 + .1, fz + fd/2 + .1]);
+  // ── 경찰서 ──
+  const px = 68, pz = -14, pw = 10, pd = 8;
+  building(px, pz, pw, pd, 7, '#eef2f7', {cols:6, rows:4, trim:'#1f3b73', roof:'#1f3b73'});
+  box(pw, .5, .3, M('#1f3b73'), px, 2.9, pz + pd/2 + .1);
+  const psg = new THREE.MeshLambertMaterial({map:textTex('🚓 행복 경찰서 112', {w:640, h:110, bg:'#1f3b73', fg:'#ffffff', border:'#ffd34d', font:60}), emissive:'#ffffff', emissiveIntensity:.15});
+  (W.nightGlow = W.nightGlow || []).push(psg); mesh(new THREE.PlaneGeometry(6, 1.0), psg, px, 5.6, pz + pd/2 + .05, scene, false);
+  mesh(new THREE.CircleGeometry(.55, 5), M('#ffd34d'), px - 4, 5.6, pz + pd/2 + .06, scene, false).rotation.z = Math.PI/2;   // 별 배지
+  [-.9, .9].forEach(dx => { box(.15, 2.6, .15, M('#c8ccd2'), px + dx, 1.3, pz + pd/2 + .6); });
+  const lamp = sph(.25, glowMat('#5fb4ff', '#3d7cff'), px, 2.8, pz + pd/2 + .6, scene, 10);
+  OBST.push([px - pw/2 - .1, pz - pd/2 - .1, px + pw/2 + .1, pz + pd/2 + .1]);
+  // 직원 NPC
+  [[fx - 2.4, fz + fd/2 + 1.2, '#d9342b'], [fx + 2.6, fz + fd/2 + 1.4, '#d9342b'], [px + 2.5, pz + pd/2 + 1.3, '#1f3b73']].forEach(([x, z, c]) => {
+    const p = makePerson({name:'대원', skin:pick(['#f1c49c','#e9b98f']), hair:'#2a2a2a', style:'short', towel:c, shirt:c, s:1}); p.g.position.set(x, 0, z); p.pose = 'stand'; W.npcs.push({p, type:'owner'});
+    box(.5, .14, .5, M(c === '#d9342b' ? '#ffd34d' : '#1f3b73'), 0, .28, 0, p.head);
+    OBST.push([x - .3, z - .3, x + .3, z + .3]); });
+  // 출동 차량 (평소엔 숨김)
+  JOB.veh.fire = makeFireTruck(); JOB.veh.police = makePoliceCar();
+  // 서 앞 전시용 차량
+  const showF = makeFireTruck(); showF.visible = true; showF.position.set(fx - 2.4, 0, fz + fd/2 + 3.4); showF.rotation.y = Math.PI/2; OBST.push([fx - 3.4, fz + fd/2 + 1.6, fx - 1.4, fz + fd/2 + 5.2]);
+  const showP = makePoliceCar(); showP.visible = true; showP.position.set(px - 3, 0, pz + pd/2 + 2.6); showP.rotation.y = 0; OBST.push([px - 4.3, pz + pd/2 + 1.9, px - 1.7, pz + pd/2 + 3.3]);
+  addPlace('행복 소방서', fx + 2.4, fz + fd/2 + 1.0, null, 2.0);
+  addPlace('행복 경찰서', px, pz + pd/2 + 1.6, null, 2.0);
+  // 목표 빛기둥
+  JOB.beacon = new THREE.Group();
+  mesh(new THREE.CylinderGeometry(1.4, 1.4, 40, 20, 1, true), new THREE.MeshBasicMaterial({color:'#ffd34d', transparent:true, opacity:.25, depthWrite:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending}), 0, 20, 0, JOB.beacon, false);
+  const ring = mesh(new THREE.TorusGeometry(2.2, .12, 8, 32), new THREE.MeshBasicMaterial({color:'#ff5a3a'}), 0, .1, 0, JOB.beacon, false); ring.rotation.x = Math.PI/2;
+  JOB.beacon.visible = false; scene.add(JOB.beacon);
+}
+function lightBar(g, y, len){
+  const r = new THREE.MeshLambertMaterial({color:'#ff3a3a', emissive:'#ff2020', emissiveIntensity:.2}), b = new THREE.MeshLambertMaterial({color:'#3a7aff', emissive:'#2050ff', emissiveIntensity:.2});
+  box(.25, .14, len/2, r, 0, y, -len/4, g); box(.25, .14, len/2, b, 0, y, len/4, g);
+  g.userData.bar = [r, b];
+}
+function makeFireTruck(){
+  const g = new THREE.Group(), red = new THREE.MeshPhongMaterial({color:'#d9342b', shininess:80, specular:'#666', envMap:envTex(), combine:THREE.MixOperation, reflectivity:.15});
+  box(3.2, 1.3, 1.5, red, -.4, 1.05, 0, g); box(1.2, 1.5, 1.5, red, 1.6, 1.15, 0, g);
+  box(.08, .7, 1.3, CAR_GLASS, 2.22, 1.5, 0, g); [-1, 1].forEach(s => box(.8, .5, .05, CAR_GLASS, 1.6, 1.55, s*.76, g));
+  box(3.2, .12, 1.52, M('#f4f6f8'), -.4, .75, 0, g); box(3.2, .08, 1.52, M('#ffd34d'), -.4, .62, 0, g);
+  const lad = new THREE.Group(); lad.position.set(-.4, 1.85, 0); g.add(lad); [-.3, .3].forEach(z => box(3.4, .07, .07, M('#c8ccd2'), 0, 0, z, lad)); for(let x=-1.6;x<=1.6;x+=.4) box(.06, .06, .6, M('#c8ccd2'), x, 0, 0, lad);
+  [[-1.4], [0.2], [1.6]].forEach(([x]) => [-1, 1].forEach(s => { const w = cyl(.32, .32, .25, M('#1d1d1d'), x, .32, s*.68, g, 14); w.rotation.x = Math.PI/2; }));
+  const bar = new THREE.Group(); bar.position.set(1.6, 1.98, 0); g.add(bar); lightBar(bar, 0, 1.2); g.userData.bar = bar.userData.bar;
+  box(.05, .16, .4, M('#fff6c8'), 2.24, .8, .45, g); box(.05, .16, .4, M('#fff6c8'), 2.24, .8, -.45, g);
+  plane(1.6, .35, sMat(textTex('119 소방', {w:256, h:64, bg:'#ffffff', fg:'#d9342b', border:false, font:44})), -.4, 1.2, .77, g);
+  g.visible = false; scene.add(g); return g;
+}
+function makePoliceCar(){
+  const g = new THREE.Group(), wht = new THREE.MeshPhongMaterial({color:'#f4f6f8', shininess:90, specular:'#777', envMap:envTex(), combine:THREE.MixOperation, reflectivity:.2});
+  box(2.5, .55, 1.15, wht, 0, .55, 0, g); box(1.35, .5, 1.05, wht, -.15, 1.05, 0, g); box(1.37, .34, 1.07, CAR_GLASS, -.15, 1.05, 0, g).scale.set(.98, .85, 1.01);
+  [-1, 1].forEach(s => box(2.4, .14, .02, M('#1f3b73'), 0, .6, s*.585, g));
+  [[-.8], [.8]].forEach(([x]) => [-1, 1].forEach(s => { const w = cyl(.25, .25, .16, M('#1d1d1d'), x, .26, s*.53, g, 12); w.rotation.x = Math.PI/2; }));
+  const bar = new THREE.Group(); bar.position.set(-.15, 1.37, 0); g.add(bar); lightBar(bar, 0, .9); g.userData.bar = bar.userData.bar;
+  box(.05, .12, .3, M('#fff6c8'), 1.26, .62, .33, g); box(.05, .12, .3, M('#fff6c8'), 1.26, .62, -.33, g);
+  plane(1.1, .25, sMat(textTex('112 경찰', {w:256, h:64, bg:'#ffffff', fg:'#1f3b73', border:false, font:44})), .3, .62, .59, g);
+  g.visible = false; scene.add(g); return g;
+}
+// ---------- 입사·출동 ----------
+function joinJob(type){
+  if(S.job === type){ S.job = null; JOB.mission && endMission(false); return '👋 퇴사했어요. 다시 오면 언제든 입사할 수 있어요.'; }
+  S.job = type; JOB.timer = 12;
+  speak(`${JOB_INFO[type].station}에 오신 것을 환영합니다`);
+  return `${JOB_INFO[type].icon} <b>${JOB_INFO[type].name}</b>으로 입사했어요! 곧 📱 휴대폰으로 출동 지령이 와요. (출동 1번에 ${won(JOB_INFO[type].pay)}원 + 빠를수록 보너스)`;
+}
+function newIncident(){
+  if(!S.job || JOB.mission) return;
+  const [name, x, z] = pick(INCIDENT_SPOTS), type = S.job;
+  JOB.mission = {type, name, x, z, stage:'call', t:0, hp:100, situ:pick(type === 'fire' ? FIRE_SITU : POLICE_SITU)};
+  for(let i=0;i<3;i++) setTimeout(() => { beep(960, .25, 'square', .05); setTimeout(() => beep(720, .25, 'square', .05), 260); }, i*560);
+  speak(type === 'fire' ? `화재 출동 지령! ${name}에서 ${JOB.mission.situ}` : `긴급 출동 지령! ${name}, ${JOB.mission.situ}`);
+  SEC.app = 'dispatch'; togglePhone(true); SEC.app = 'dispatch'; renderPhone();
+  secLog(`${type === 'fire' ? '🔥' : '🚨'} 출동 지령: ${name}`);
+}
+function startMission(){
+  const M_ = JOB.mission; if(!M_ || M_.stage !== 'call') return;
+  if(PLAYER.inHome || PLAYER.inStore || PLAYER.inPrem || PLAYER.inStation || PLAYER.using || STATION.riding) return toast('🚨 밖으로 나가서 출동하기를 눌러요!');
+  if(DRIVE.active){ DRIVE.speed = 0; exitCar(); }
+  M_.stage = 'go'; M_.t = 0;
+  // 출동 차량으로 바꾸기
+  const v = JOB.veh[M_.type];
+  JOB.prevCar = DRIVE.car; JOB.prevV = {vmax:DRIVE.vmax, acc:DRIVE.acc, wheels:DRIVE.wheels};
+  DRIVE.car.visible = false; DRIVE.car = v; v.visible = true; DRIVE.wheels = []; DRIVE.vmax = M_.type === 'fire' ? 18 : 22; DRIVE.acc = 1.4;
+  deliverCar(`${JOB_INFO[M_.type].veh} 출동! 노란 빛기둥(${M_.name})으로 달려가요 🚨`);
+  JOB.beacon.position.set(M_.x, 0, M_.z); JOB.beacon.visible = true;
+  togglePhone(false); $('#mission').classList.remove('hidden');
+}
+function restoreCar(){
+  if(!JOB.prevCar) return;
+  const v = DRIVE.car; JOB.prevCar.position.copy(v.position); JOB.prevCar.rotation.copy(v.rotation); JOB.prevCar.visible = true; v.visible = false;
+  DRIVE.car = JOB.prevCar; Object.assign(DRIVE, JOB.prevV); JOB.prevCar = null; JOB.restore = false;
+}
+function endMission(ok){
+  const M_ = JOB.mission; if(!M_) return;
+  JOB.beacon.visible = false; $('#mission').classList.add('hidden');
+  JOB.fx.forEach(f => scene.remove(f)); JOB.fx = [];
+  if(M_.thief) removePerson(M_.thief);
+  JOB.mission = null; JOB.timer = rnd(35, 60);
+  if(DRIVE.active) JOB.restore = true; else restoreCar();
+  if(!ok) return;
+  const bonus = Math.max(0, Math.round((90 - M_.t)*500/1000)*1000), pay = JOB_INFO[M_.type].pay + bonus;
+  S[wKey()] += pay; S.jobDone = (S.jobDone || 0) + 1; updateHUD(); sfx.coin(); sfx.bell();
+  speak(M_.type === 'fire' ? '화재 진압 완료! 수고하셨습니다' : '범인 검거 완료! 수고하셨습니다');
+  (S.jobLog = S.jobLog || []).unshift(`${M_.type === 'fire' ? '🔥' : '🚨'} ${M_.name} · ${Math.round(M_.t)}초 · +${won(pay)}원`); S.jobLog.length = Math.min(S.jobLog.length, 6);
+  secLog(`✅ 출동 완료 +${won(pay)}원`);
+  toast(`✅ 출동 완료! 출동비 ${won(JOB_INFO[M_.type].pay)}원 + 빠른 출동 보너스 ${won(bonus)}원 = +${won(pay)}원`);
+  SEC.app = 'dispatch'; togglePhone(true); renderPhone();
+}
+function arriveMission(){
+  const M_ = JOB.mission; M_.stage = 'act';
+  if(M_.type === 'fire'){
+    const fireTex = FW.tex;
+    for(let i=0;i<7;i++){ const s = new THREE.Sprite(new THREE.SpriteMaterial({map:fireTex, color:pick(['#ff5a1f','#ffb020','#ff3a10']), transparent:true, depthWrite:false, blending:THREE.AdditiveBlending}));
+      s.position.set(M_.x + rnd(-1.2, 1.2), rnd(.4, 1.6), M_.z + rnd(-1.2, 1.2)); s.userData.base = s.position.y; s.userData.ph = rnd(0, 6); scene.add(s); JOB.fx.push(s); }
+    for(let i=0;i<5;i++){ const s = new THREE.Sprite(new THREE.SpriteMaterial({map:steamTex, color:'#555', transparent:true, opacity:.6, depthWrite:false})); s.position.set(M_.x, 2, M_.z); s.userData.smoke = rnd(0, 1); scene.add(s); JOB.fx.push(s); }
+    const bin = box(.8, .9, .8, M('#3b4a5a'), M_.x, .45, M_.z); JOB.fx.push(bin);
+    toast('🔥 불이야! 차에서 내려(E) 가까이 가서 E를 여러 번 눌러 물을 뿌려요 💦');
+  } else {
+    const th = makePerson({name:'도둑', skin:'#e9b98f', hair:'#1d1d1d', style:'short', towel:'#1d1d1d', shirt:'#24323a', s:.95});
+    box(.42, .12, .1, M('#111'), 0, .04, .25, th.head); // 복면
+    th.g.position.set(M_.x + 3, 0, M_.z); M_.thief = th; M_.tx = M_.x + 3; M_.tz = M_.z;
+    toast('🚨 도둑 발견! 차에서 내려(E) Shift로 달려가서 가까이서 E로 체포해요 🚔');
+  }
+}
+function jobNear(){
+  const M_ = JOB.mission; if(!M_ || M_.stage !== 'act' || DRIVE.active) return null;
+  if(M_.type === 'fire') return Math.hypot(PLAYER.x - M_.x, PLAYER.z - M_.z) < 4 ? 'spray' : null;
+  return M_.thief && Math.hypot(PLAYER.x - M_.tx, PLAYER.z - M_.tz) < 1.6 ? 'arrest' : null;
+}
+function jobHint(){ const a = jobNear(); if(!a) return ''; return a === 'spray' ? `<b>E</b> 💦 물 뿌리기 (남은 불 ${Math.max(0, Math.round(JOB.mission.hp))}%)` : '<b>E</b> 🚔 체포하기!'; }
+function jobAction(){
+  const a = jobNear(); if(!a) return false; const M_ = JOB.mission;
+  if(a === 'spray'){
+    M_.hp -= 20; beep(300, .15, 'sine', .03);
+    // 물줄기 입자
+    const n = 40, pos = new Float32Array(n*3), vel = [], dx = M_.x - PLAYER.x, dz = M_.z - PLAYER.z, d = Math.hypot(dx, dz) || 1;
+    for(let i=0;i<n;i++){ pos.set([PLAYER.x, 1.1, PLAYER.z], i*3); const sp = rnd(5, 8); vel.push([dx/d*sp + rnd(-.6, .6), rnd(2, 4), dz/d*sp + rnd(-.6, .6)]); }
+    const gm = new THREE.BufferGeometry(); gm.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(gm, new THREE.PointsMaterial({size:.35, map:FW.tex, color:'#8fd8ff', transparent:true, depthWrite:false})); pts.frustumCulled = false; scene.add(pts);
+    JOB.water.push({pts, pos, vel, n, life:0});
+    if(M_.hp <= 0) endMission(true);
+  } else { endMission(true); }
+  return true;
+}
+function updateJob(dt){
+  if(!JOB.beacon) return;
+  // 출동 지령 타이머 (직업이 있고, 밖에서 놀고 있을 때)
+  if(S && S.job && !JOB.mission && !modalOpen() && !STATION.riding && S.phase !== 'menu' && S.phase !== 'sleeping'){ JOB.timer -= dt; if(JOB.timer <= 0) newIncident(); }
+  const M_ = JOB.mission;
+  // 사이렌 + 경광등
+  const vehOn = DRIVE.car && DRIVE.car.userData.bar && M_ && (M_.stage === 'go' || M_.stage === 'act');
+  JOB.flash += dt;
+  [JOB.veh.fire, JOB.veh.police].forEach(v => { if(v && v.userData.bar){ const on = Math.sin(JOB.flash*12) > 0; v.userData.bar[0].emissiveIntensity = vehOn ? (on ? 1.4 : .1) : .2; v.userData.bar[1].emissiveIntensity = vehOn ? (on ? .1 : 1.4) : .2; } });
+  if(vehOn && DRIVE.active && M_.stage === 'go'){ JOB.siren -= dt; if(JOB.siren <= 0){ JOB.siren = .55; const hi = Math.floor(JOB.flash*2) % 2; beep(hi ? 880 : 660, .45, 'sawtooth', .02); } }
+  if(JOB.restore && !DRIVE.active) restoreCar();
+  // 물줄기
+  for(let i=JOB.water.length - 1;i>=0;i--){ const w = JOB.water[i]; w.life += dt;
+    for(let j=0;j<w.n;j++){ const v = w.vel[j]; v[1] -= 9*dt; w.pos[j*3] += v[0]*dt; w.pos[j*3 + 1] = Math.max(0, w.pos[j*3 + 1] + v[1]*dt); w.pos[j*3 + 2] += v[2]*dt; }
+    w.pts.geometry.attributes.position.needsUpdate = true; w.pts.material.opacity = 1 - w.life;
+    if(w.life > 1){ scene.remove(w.pts); w.pts.geometry.dispose(); JOB.water.splice(i, 1); } }
+  if(!M_){ return; }
+  if(M_.stage === 'go' || M_.stage === 'act') M_.t += dt;
+  JOB.beacon.rotation.y += dt;
+  if(M_.stage === 'go' && Math.hypot(PLAYER.x - M_.x, PLAYER.z - M_.z) < 7) arriveMission();
+  if(M_.stage === 'act'){
+    if(M_.type === 'fire'){ const k = Math.max(0, M_.hp)/100;
+      JOB.fx.forEach(f => { if(f.isSprite && f.userData.base !== undefined){ f.scale.setScalar((1.2 + Math.sin(T*9 + f.userData.ph)*.3)*k + .01); f.position.y = f.userData.base + Math.sin(T*7 + f.userData.ph)*.15; }
+        else if(f.isSprite && f.userData.smoke !== undefined){ f.userData.smoke = (f.userData.smoke + dt*.35) % 1; f.position.y = 1.5 + f.userData.smoke*5; f.material.opacity = .55*(1 - f.userData.smoke)*k; f.scale.setScalar(1 + f.userData.smoke*2.5); } }); }
+    else if(M_.thief){ const th = M_.thief, d = Math.hypot(PLAYER.x - M_.tx, PLAYER.z - M_.tz);
+      let mx = 0, mz = 0; if(d < 9 && !DRIVE.active){ mx = (M_.tx - PLAYER.x)/d; mz = (M_.tz - PLAYER.z)/d; } else { mx = Math.sin(T*.7); mz = Math.cos(T*.5); }
+      const sp = (d < 9 && !DRIVE.active ? 5.6 : 1.5)*dt, q = {x:M_.tx + mx*sp, z:M_.tz + mz*sp}; collide(q, .3);
+      if(Math.hypot(q.x - M_.x, q.z - M_.z) > 14){ q.x = M_.tx - mx*sp; q.z = M_.tz - mz*sp; }   // 너무 멀리는 못 가요
+      M_.tx = q.x; M_.tz = q.z; th.g.position.set(q.x, 0, q.z); th.g.rotation.y = Math.atan2(mx, mz); setPose(th, 'walk', dt*(sp > .05 ? 2 : 1)); }
+  }
+  // 상단 안내 + 방향 화살표
+  const tx = M_.stage === 'act' && M_.thief ? M_.tx : M_.x, tz = M_.stage === 'act' && M_.thief ? M_.tz : M_.z;
+  const dx = tx - PLAYER.x, dz = tz - PLAYER.z, dist = Math.hypot(dx, dz);
+  const ang = Math.atan2(dx, dz) - Math.atan2(-Math.sin(cam.yaw), -Math.cos(cam.yaw));
+  const el = $('#mission'); if(M_.stage !== 'call'){ el.innerHTML = `<span class="ms-ic">${M_.type === 'fire' ? '🔥' : '🚨'}</span><b>${M_.name}</b> ${M_.stage === 'go' ? `까지 ${Math.round(dist)}m` : M_.type === 'fire' ? `불 끄는 중 ${Math.max(0, Math.round(M_.hp))}%` : `도둑까지 ${Math.round(dist)}m`}<i style="transform:rotate(${-ang}rad)">⬆</i><small>${Math.round(M_.t)}초</small>`; }
+}
+function dispatchApp(){
+  const scr = $('#phScreen'), M_ = JOB.mission, j = S.job ? JOB_INFO[S.job] : null;
+  scr.innerHTML = `<div class="ph-bar"><button data-app="home">‹</button>🚨 출동</div>
+    ${!j ? '<div class="ph-note">아직 직업이 없어요.<br>🚒 행복 소방서나 🚓 행복 경찰서에 가서 E로 입사해요!</div>' : `<div class="ph-note">${j.icon} <b>${j.name}</b> · 출동 ${S.jobDone || 0}회</div>`}
+    ${M_ ? `<div class="dp-card ${M_.type}"><div class="dp-h">${M_.type === 'fire' ? '🔥 화재 출동 지령' : '🚨 긴급 출동 지령'}</div><div class="dp-b">📍 <b>${M_.name}</b><br>${M_.situ}</div>
+       ${M_.stage === 'call' ? `<button id="dpGo">${j.veh} 출동하기!</button>` : `<div class="dp-s">${M_.stage === 'go' ? '🚨 출동 중 — 노란 빛기둥으로!' : '현장 도착! 임무를 마쳐요'}</div>`}</div>`
+       : (j ? `<div class="ph-list"><div>📟 대기 중… 곧 신고가 들어와요 (${Math.max(0, Math.ceil(JOB.timer))}초)</div></div>` : '')}
+    <div class="rl-h" style="background:#24323a">📜 출동 기록</div>
+    <div class="ph-list">${(S.jobLog || []).map(l => `<div>${l}</div>`).join('') || '<div>아직 기록이 없어요</div>'}</div>`;
+  const go = $('#dpGo'); if(go) go.onclick = startMission;
+  scr.querySelectorAll('[data-app]').forEach(b => b.onclick = () => { SEC.app = b.dataset.app; renderPhone(); });
+}
+PLACE_T['행복 소방서'] = {icon:'🚒', job:['소방 훈련 보조', ['🧯','🚒','🪜','💧']], acts:['joinFire', 'callNow']};
+PLACE_T['행복 경찰서'] = {icon:'🚓', job:['순찰 보조', ['🚓','👮','🔦','📋']], acts:['joinPolice', 'callNow']};
+ACTS.joinFire = {label:'👨‍🚒 소방관 입사하기 / 퇴사', run: pl => result(pl, '🚒 행복 소방서', joinJob('fire'))};
+ACTS.joinPolice = {label:'👮 경찰관 입사하기 / 퇴사', run: pl => result(pl, '🚓 행복 경찰서', joinJob('police'))};
+ACTS.callNow = {label:'📟 바로 출동 지령 받기', run: pl => { if(!S.job) return result(pl, '📟 출동', '먼저 입사해야 출동할 수 있어요!'); if(JOB.mission) return result(pl, '📟 출동', '이미 출동 중이에요!'); placeClose(); JOB.timer = .5; }};
 /* ======================= 행복모터스 (자동차 매장 + 고급 자동차 모델) ======================= */
 // 가상 브랜드 '행복모터스'. 차 앞쪽 = 로컬 +x (내 차와 같은 방향). 매장은 연장된 길 x 62.5~82.5 에 있어요.
 const CAR_MODELS = {
@@ -2777,6 +3004,7 @@ function interactMain(){
   if(STATION.riding) return;
   if(PLAYER.inStation){ if(nearStationExit()) return exitStation(); const td = nearTrainDoor(); if(td) return boardTrain(td); return; }
   if(nearStationDoor()) return enterStation();
+  if(jobAction()) return;
   if(PLAYER.inStore){ if(nearStoreDoorIn()) return exitStore(); if(nearCounter()) return S.basket.length ? payBasket() : openPlace(storePlace()); const sh = nearShelf(); if(sh >= 0) return addToBasket(sh); return; }
   const sd = shopDoorNear(); if(sd) return enterStore(sd);
   if(PLAYER.inPrem){ if(nearPremDoorIn()) return exitPrem(); if(nearPremBed()) return S.premium ? sleep() : toast('구매해야 여기서 잘 수 있어요'); if(nearJacuzzi()) return soakJacuzzi(); const pp = nearPlace(); if(pp) return openPlace(pp); return; }
@@ -2845,6 +3073,7 @@ function updatePlayer(dt){
   if(PLAYER.inStation){ const td = nearTrainDoor();
     h = nearStationExit() ? '<b>E</b> 밖으로 나가기 🚪' : td ? (tickets().some(t => t.train === td) ? `<b>E</b> 🚄 ${RAIL[td].name} 타기 (${tickets().find(t => t.train === td).dest}행)` : `🎫 ${RAIL[td].name} 승차권이 없어요 (📱 P → 행복레일)`)
       : (Math.abs(PLAYER.z - STATION.gateZ) < 1.6 && !gateOpen()) ? '🎫 승차권이 있어야 개찰구가 열려요 (📱 P → 🚄 행복레일)' : ''; }
+  else if(jobHint()) h = jobHint();
   else if(nearStationDoor()) h = '<b>E</b> 🚄 서울역 들어가기';
   else if(PLAYER.inStore){
     if(nearStoreDoorIn()) h = '<b>E</b> 밖으로 나가기 🚪';
@@ -5050,6 +5279,7 @@ function loop(ts){
     updateAttract(dt);
     updateFireworks(dt);
     updateRail(dt);
+    updateJob(dt);
   }
   updateCamera();
   followSun();

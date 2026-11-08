@@ -67,7 +67,7 @@
     - 천원샵 상품 `DAISO_OWNER`/`DAISO_CUST`: `once:true`인 물건은 하루 한 개, 효과는 `S.buff[id]`에 저장 → `endDay`/`endDayCustomer`에서 초기화 (밤에 사면 다음 날까지). 화면 왼쪽 위 `#buffs`에 아이콘 표시(`renderBuffs`)
     - 펫샵 `PET_OWNER`/`PET_CUST`: `pet:'dog'|'cat'|'hamster'` 입양 → `S.pet`(따라다니는 반려동물, `PET`·`updatePets`·`makePet`), 리본 `S.petBow`, 사장 전용 영구 `S.shopCat`(인내심 +15%, `resetPatience`)·`S.fishTank`(만족도 +5, `depart`)
     - 버프 효과 위치: `finishService`(scrubTowel, basin), `tick`(basin, mat, aroma), `depart`(towel), `finishMe`(cTowel, duck, sheep), `updatePlayer`(slipper 속도, 양머리 표시)
-14. **역할**: `startRole`, `applyRoleLook`, `useFacility/finishMe`(손님이 직접 이용), `autoManage`
+14. **역할**: `startRole`, `applyRoleLook`(손님은 `applyCustomerOutfit`: 평소 노란 맨투맨+남색 바지, 탕·사우나·때밀이·자쿠지 이용 중에만 수건 차림 — `updatePlayer`에서 `PLAYER.bathLook` 전환), `useFacility/finishMe`(손님이 직접 이용), `autoManage`
 15. **프리미엄**: `PREM_PRICE = 1,000,000`, `premDoor`, `enterPrem/exitPrem`, `soakJacuzzi`, 숙면 보너스(`S.sleptPrem`)
 16. **관리자**: `ADMIN`, `openAdmin`, `adminAction`
 16-10. **🚄 서울역·고속열차**: 실제 브랜드 대신 가상 열차 `RAIL` = HTX 행복고속(파랑, 1번 승강장: 대전·부산·강릉) / BTX 별빛고속(보라, 2번: 광주·목포·여수). 바깥 역사 `buildStationExterior`(100, -12, 문 앞 (100, -6.3)), 내부 방 `STX = 800`(`buildStationInterior`: 대리석 대합실·출발 전광판·의자·역 편의점·개찰구·승강장·선로·터널, 열차 `makeTrain`/`makeTrainCar`). `PLAYER.inStation`, `collide` room 'station'(`stationObst()` — 승차권 없으면 개찰구 막힘 `gateOpen`). 승차권 `S.tickets`: 휴대폰 '🚄 행복레일' 앱(`railApp`)에서 예매. 승강장 열차 옆 E → `boardTrain` → 열차 출발 + `#travel` 여행 화면 8초 → 도착 모달·기념품(가방)·`funReward` → 열차 복귀(`updateRail`).
@@ -153,3 +153,4 @@
 30. 🍜 서울 맛집 골목 (맛집 10곳 + 포장마차 3곳, 줄 서는 손님)
 31. 🚄 서울역(내부·개찰구·승강장) + 가상 고속열차 HTX·BTX, 휴대폰 행복레일 앱 승차권 예매 → 탑승 여행·기념품
 32. 🚄 열차 객실 탑승 연출 (창가 1인칭·창밖 풍경·터널·흔들림·안내 방송)
+33. 손님 모드 옷 입히기 (평소 맨투맨·바지, 목욕할 때만 수건)

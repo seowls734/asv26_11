@@ -2803,6 +2803,7 @@ function updatePlayer(dt){
   const P = PLAYER, k = P.keys, p = P.p;
   if(P.basket) P.basket.visible = P.inStore && S.basket.length > 0;
   if(P.sheep) P.sheep.visible = S.role==='customer' && !!S.buff.sheep;
+  if(S.role==='customer'){ const bath = !!PLAYER.using || PLAYER.jacuzzi > 0; if(bath !== PLAYER.bathLook) applyCustomerOutfit(bath); } // 목욕할 때만 옷 벗기
   if(DRIVE.active) return updateCar(dt);
   if(STATION.riding){ P.hintEl.style.display = 'none'; return; }
   if(PLAYER.using){
@@ -4137,12 +4138,22 @@ function followSun(){ // 그림자가 카메라가 보는 곳을 따라다녀요
 
 /* ======================= 사장 / 손님 모드 ======================= */
 const COURSE = [['warm','♨️ 온탕'],['cold','🧊 냉탕'],['sauna','🔥 사우나'],['scrub','🧽 때밀이'],['milk','🍌🥛 바나나우유']];
+// 손님 옷: 평소엔 노란 맨투맨 + 남색 바지, 탕·사우나·때밀이를 이용하는 동안만 수건 차림
+function applyCustomerOutfit(bath){
+  const b = PLAYER.p.body, sp = PLAYER.p.sp;
+  const top = M(bath ? sp.skin : '#f2b632'), pants = M(bath ? sp.skin : '#3b4a5a');
+  b.torsoM.material = b.shM.material = b.armLM.material = b.armRM.material = top;
+  b.towelM.material = M(bath ? '#ffffff' : '#3b4a5a');
+  b.legLM.material = b.legRM.material = pants;
+  PLAYER.bathLook = bath;
+}
 function applyRoleLook(){
   const cust = S.role==='customer', b = PLAYER.p.body, sp = PLAYER.p.sp;
   PLAYER.ownerParts.forEach(m => m.visible = !cust);
-  const top = M(cust ? sp.skin : '#2b5f86');
-  b.torsoM.material = b.shM.material = b.armLM.material = b.armRM.material = top;
-  b.towelM.material = M(cust ? '#ffffff' : '#2b5f86');
+  if(cust) applyCustomerOutfit(false);
+  else { const top = M('#2b5f86');
+    b.torsoM.material = b.shM.material = b.armLM.material = b.armRM.material = top;
+    b.towelM.material = M('#2b5f86'); b.legLM.material = b.legRM.material = M(sp.skin); }
   applyNameTag();
   document.body.classList.toggle('role-customer', cust);
   applyStoreRole();

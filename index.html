@@ -214,6 +214,36 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
 .bag-gear div{background:#fff;border:2px solid #24323a;border-radius:10px;padding:5px 7px;display:grid;grid-template-columns:auto 1fr;column-gap:6px;align-items:center;font-size:12px}
 .bag-gear span{grid-row:span 2;font-size:22px}.bag-gear b{font-family:'Jua';font-weight:400}.bag-gear small{opacity:.75}
 @media (max-width:560px){ .bag-grid{grid-template-columns:repeat(4,1fr)} .bag-gear{grid-template-columns:repeat(2,1fr)} }
+/* 🎪 전시 모드 */
+#attract{position:absolute;inset:0;z-index:8;pointer-events:none;background:linear-gradient(rgba(13,18,38,.55),rgba(13,18,38,0) 32%,rgba(13,18,38,0) 62%,rgba(13,18,38,.65));color:#fff;font-family:'Jua'}
+#attract.hidden{display:none}
+.at-top{position:absolute;left:0;right:0;top:4%;text-align:center}
+.at-logo{font-size:clamp(34px,6vw,64px);animation:atBob 2s ease-in-out infinite}
+@keyframes atBob{50%{transform:translateY(-8px)}}
+.at-title{font-size:clamp(38px,7.5vw,92px);line-height:1;color:#fff4dc;text-shadow:0 4px 0 #d9483b,0 8px 18px rgba(0,0,0,.45);letter-spacing:2px}
+.at-sub{display:inline-block;font-family:'Gowun Dodum';font-size:clamp(13px,1.8vw,20px);margin-top:8px;background:rgba(13,18,38,.6);padding:3px 12px;border-radius:99px}
+.at-cap{position:absolute;left:50%;top:44%;transform:translateX(-50%);background:rgba(255,250,242,.95);color:#24323a;border:3px solid #24323a;border-radius:14px;padding:8px 16px;font-size:clamp(14px,2vw,22px);white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 0 #24323a;opacity:0}
+.at-cap.show{animation:atCap 7s ease forwards}
+@keyframes atCap{0%{opacity:0;transform:translate(-50%,12px)}8%,88%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}
+.at-start{position:absolute;left:50%;top:58%;transform:translateX(-50%);font-size:clamp(18px,3vw,34px);background:#d9483b;color:#fff;padding:10px 26px;border-radius:99px;border:3px solid #fff4dc;box-shadow:0 0 0 6px rgba(217,72,59,.35);white-space:nowrap;animation:atPulse 1.2s ease-in-out infinite}
+@keyframes atPulse{50%{transform:translateX(-50%) scale(1.07);box-shadow:0 0 0 14px rgba(217,72,59,.15)}}
+.at-rank{position:absolute;left:14px;bottom:14px;width:min(260px,34%);background:rgba(255,250,242,.94);color:#24323a;border:3px solid #24323a;border-radius:14px;padding:8px 10px;font-size:14px}
+.at-qr{position:absolute;right:14px;bottom:14px;width:min(150px,22%);background:#fff;border:3px solid #24323a;border-radius:14px;padding:8px;text-align:center;color:#24323a;font-size:13px}
+.at-qr svg,.qr svg{width:100%;height:auto;display:block}
+.rk{list-style:none;margin:6px 0 0;padding:0}
+.rk li{display:grid;grid-template-columns:28px 1fr auto;gap:6px;align-items:center;padding:3px 4px;border-bottom:1px dashed rgba(36,50,58,.2);font-family:'Jua';font-size:15px}
+.rk li.me{background:#ffe48a;border-radius:8px;animation:atPulse2 1s 3}
+@keyframes atPulse2{50%{background:#ffd34d}}
+.rk em{font-style:normal;color:#d9483b}
+.rk-empty{font-family:'Gowun Dodum';font-size:13px;opacity:.8;padding:6px 0}
+.qr-row{display:flex;align-items:center;gap:12px;margin-top:10px;background:#fff;border:2px dashed #c9b99a;border-radius:12px;padding:8px}
+.qr-row .qr{width:96px;flex:none}.qr-row p{margin:0;font-family:'Jua';font-size:15px}
+.title-ex{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 4px;align-items:start}
+.title-ex>div:first-child{background:#fff;border:2px solid #24323a;border-radius:12px;padding:8px}
+.title-ex .qr-row{margin-top:0}
+.ch-score{text-align:center;background:#24323a;color:#fff;border-radius:14px;padding:10px;margin-top:10px;font-family:'Jua'}
+.ch-score small{display:block;opacity:.8}.ch-score b{display:block;font-size:40px;color:#ffe48a;font-weight:400}.ch-score span b{font-size:inherit;display:inline}
+@media (max-width:600px){ .title-ex{grid-template-columns:1fr} .at-rank{display:none} }
 </style>
 </head>
 <body>
@@ -236,6 +266,7 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
   <div id="timebar"><i></i></div>
   <div id="stage">
     <div id="loading">♨ 목욕탕 물 데우는 중…</div>
+    <div id="attract" class="hidden"><div class="at-top"><div class="at-logo">♨️</div><div class="at-title">행복탕 사장님</div><div class="at-sub">동네 목욕탕 3D 경영 · 생활 시뮬레이션 — 직접 해 보세요!</div></div><div id="atCap" class="at-cap"></div><div class="at-start">👆 아무 키나 누르거나 화면을 터치해서 시작!</div><div class="at-rank"><b>🏆 오늘의 사장님 TOP 5</b><div id="atRank"></div></div><div class="at-qr"><div id="atQR"></div><span>📱 내 폰으로 하기</span></div></div>
     <div id="phone" class="hidden"><div class="ph-body"><div class="ph-notch"></div><button id="phClose" title="닫기">✕</button><div class="ph-status"><span id="phTime">06:00</span><span>📶 🔋</span></div><div class="ph-screen" id="phScreen"></div><div class="ph-home" id="phHome" title="홈 화면"></div></div></div>
     <div id="wallpad" class="hidden"><div class="wp-dev"><div class="wp-brand"><span>HAENGBOK HOME</span><span>📟 월패드</span></div><div class="wp-screen"></div></div></div>
     <div id="labels"></div>
@@ -891,6 +922,104 @@ function updateSparkles(){
     const tw = Math.max(0, Math.sin(T*2.4 + o.ph)); o.sp.material.opacity = on ? tw*.95 : 0; o.sp.scale.setScalar(o.sz*(.4 + tw*.8));
     if(tw < .02 && on){ o.sp.position.set(rnd(o.r[0] + .3, o.r[2] - .3), rnd(.9, 1.6), rnd(o.r[1] + .3, o.r[3] - .3)); } });
 }
+/* ======================= 🎪 전시(부스) 모드 · 🏆 1일 챌린지 · 순위표 ======================= */
+// 주소 끝에 ?booth 를 붙이거나 설정에서 '전시 모드'를 켜면:
+//  - 시작 화면에서 25초 동안 아무도 안 만지면 → 자동 시연(카메라가 동네를 돌아다님) + "아무 키나 눌러 시작!"
+//  - 게임 중 90초 동안 입력이 없으면 → 다음 관람객을 위해 시연 화면으로 돌아감
+// 🏆 1일 챌린지: 사장 모드 하루(약 2분) → 점수 → 이름 등록 → 순위표(이 기기에 저장)
+const QR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 31 31" shape-rendering="crispEdges"><rect width="31" height="31" fill="#fff"/><path d="M1 1h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM6 1h1v1h-1zM7 1h1v1h-1zM9 1h1v1h-1zM10 1h1v1h-1zM12 1h1v1h-1zM15 1h1v1h-1zM16 1h1v1h-1zM23 1h1v1h-1zM24 1h1v1h-1zM25 1h1v1h-1zM26 1h1v1h-1zM27 1h1v1h-1zM28 1h1v1h-1zM29 1h1v1h-1zM1 2h1v1h-1zM7 2h1v1h-1zM10 2h1v1h-1zM11 2h1v1h-1zM13 2h1v1h-1zM17 2h1v1h-1zM20 2h1v1h-1zM21 2h1v1h-1zM23 2h1v1h-1zM29 2h1v1h-1zM1 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM7 3h1v1h-1zM11 3h1v1h-1zM15 3h1v1h-1zM16 3h1v1h-1zM17 3h1v1h-1zM18 3h1v1h-1zM19 3h1v1h-1zM23 3h1v1h-1zM25 3h1v1h-1zM26 3h1v1h-1zM27 3h1v1h-1zM29 3h1v1h-1zM1 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM7 4h1v1h-1zM9 4h1v1h-1zM13 4h1v1h-1zM16 4h1v1h-1zM19 4h1v1h-1zM20 4h1v1h-1zM23 4h1v1h-1zM25 4h1v1h-1zM26 4h1v1h-1zM27 4h1v1h-1zM29 4h1v1h-1zM1 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM7 5h1v1h-1zM9 5h1v1h-1zM11 5h1v1h-1zM13 5h1v1h-1zM15 5h1v1h-1zM16 5h1v1h-1zM19 5h1v1h-1zM23 5h1v1h-1zM25 5h1v1h-1zM26 5h1v1h-1zM27 5h1v1h-1zM29 5h1v1h-1zM1 6h1v1h-1zM7 6h1v1h-1zM9 6h1v1h-1zM10 6h1v1h-1zM17 6h1v1h-1zM18 6h1v1h-1zM19 6h1v1h-1zM20 6h1v1h-1zM21 6h1v1h-1zM23 6h1v1h-1zM29 6h1v1h-1zM1 7h1v1h-1zM2 7h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM6 7h1v1h-1zM7 7h1v1h-1zM9 7h1v1h-1zM11 7h1v1h-1zM13 7h1v1h-1zM15 7h1v1h-1zM17 7h1v1h-1zM19 7h1v1h-1zM21 7h1v1h-1zM23 7h1v1h-1zM24 7h1v1h-1zM25 7h1v1h-1zM26 7h1v1h-1zM27 7h1v1h-1zM28 7h1v1h-1zM29 7h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM14 8h1v1h-1zM16 8h1v1h-1zM17 8h1v1h-1zM18 8h1v1h-1zM21 8h1v1h-1zM1 9h1v1h-1zM5 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1zM10 9h1v1h-1zM11 9h1v1h-1zM12 9h1v1h-1zM13 9h1v1h-1zM14 9h1v1h-1zM17 9h1v1h-1zM18 9h1v1h-1zM19 9h1v1h-1zM20 9h1v1h-1zM22 9h1v1h-1zM23 9h1v1h-1zM24 9h1v1h-1zM25 9h1v1h-1zM26 9h1v1h-1zM29 9h1v1h-1zM1 10h1v1h-1zM3 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM9 10h1v1h-1zM10 10h1v1h-1zM14 10h1v1h-1zM15 10h1v1h-1zM16 10h1v1h-1zM18 10h1v1h-1zM19 10h1v1h-1zM23 10h1v1h-1zM24 10h1v1h-1zM25 10h1v1h-1zM26 10h1v1h-1zM27 10h1v1h-1zM28 10h1v1h-1zM29 10h1v1h-1zM3 11h1v1h-1zM5 11h1v1h-1zM7 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM16 11h1v1h-1zM19 11h1v1h-1zM21 11h1v1h-1zM25 11h1v1h-1zM29 11h1v1h-1zM1 12h1v1h-1zM2 12h1v1h-1zM3 12h1v1h-1zM4 12h1v1h-1zM11 12h1v1h-1zM12 12h1v1h-1zM13 12h1v1h-1zM15 12h1v1h-1zM18 12h1v1h-1zM22 12h1v1h-1zM23 12h1v1h-1zM26 12h1v1h-1zM28 12h1v1h-1zM29 12h1v1h-1zM1 13h1v1h-1zM2 13h1v1h-1zM3 13h1v1h-1zM4 13h1v1h-1zM7 13h1v1h-1zM8 13h1v1h-1zM10 13h1v1h-1zM11 13h1v1h-1zM13 13h1v1h-1zM14 13h1v1h-1zM15 13h1v1h-1zM16 13h1v1h-1zM17 13h1v1h-1zM18 13h1v1h-1zM21 13h1v1h-1zM22 13h1v1h-1zM24 13h1v1h-1zM28 13h1v1h-1zM4 14h1v1h-1zM8 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1zM11 14h1v1h-1zM17 14h1v1h-1zM18 14h1v1h-1zM19 14h1v1h-1zM22 14h1v1h-1zM23 14h1v1h-1zM24 14h1v1h-1zM25 14h1v1h-1zM26 14h1v1h-1zM27 14h1v1h-1zM28 14h1v1h-1zM29 14h1v1h-1zM2 15h1v1h-1zM4 15h1v1h-1zM7 15h1v1h-1zM8 15h1v1h-1zM10 15h1v1h-1zM11 15h1v1h-1zM12 15h1v1h-1zM13 15h1v1h-1zM14 15h1v1h-1zM15 15h1v1h-1zM16 15h1v1h-1zM17 15h1v1h-1zM18 15h1v1h-1zM21 15h1v1h-1zM22 15h1v1h-1zM23 15h1v1h-1zM25 15h1v1h-1zM26 15h1v1h-1zM27 15h1v1h-1zM29 15h1v1h-1zM1 16h1v1h-1zM4 16h1v1h-1zM9 16h1v1h-1zM11 16h1v1h-1zM12 16h1v1h-1zM14 16h1v1h-1zM18 16h1v1h-1zM19 16h1v1h-1zM20 16h1v1h-1zM21 16h1v1h-1zM25 16h1v1h-1zM28 16h1v1h-1zM29 16h1v1h-1zM1 17h1v1h-1zM3 17h1v1h-1zM5 17h1v1h-1zM7 17h1v1h-1zM8 17h1v1h-1zM10 17h1v1h-1zM11 17h1v1h-1zM12 17h1v1h-1zM14 17h1v1h-1zM17 17h1v1h-1zM18 17h1v1h-1zM20 17h1v1h-1zM21 17h1v1h-1zM28 17h1v1h-1zM1 18h1v1h-1zM2 18h1v1h-1zM5 18h1v1h-1zM6 18h1v1h-1zM9 18h1v1h-1zM10 18h1v1h-1zM13 18h1v1h-1zM14 18h1v1h-1zM15 18h1v1h-1zM16 18h1v1h-1zM18 18h1v1h-1zM19 18h1v1h-1zM22 18h1v1h-1zM23 18h1v1h-1zM24 18h1v1h-1zM25 18h1v1h-1zM26 18h1v1h-1zM28 18h1v1h-1zM29 18h1v1h-1zM7 19h1v1h-1zM8 19h1v1h-1zM9 19h1v1h-1zM10 19h1v1h-1zM12 19h1v1h-1zM16 19h1v1h-1zM17 19h1v1h-1zM19 19h1v1h-1zM23 19h1v1h-1zM27 19h1v1h-1zM29 19h1v1h-1zM4 20h1v1h-1zM6 20h1v1h-1zM8 20h1v1h-1zM9 20h1v1h-1zM10 20h1v1h-1zM12 20h1v1h-1zM15 20h1v1h-1zM17 20h1v1h-1zM18 20h1v1h-1zM19 20h1v1h-1zM20 20h1v1h-1zM21 20h1v1h-1zM28 20h1v1h-1zM29 20h1v1h-1zM1 21h1v1h-1zM2 21h1v1h-1zM5 21h1v1h-1zM6 21h1v1h-1zM7 21h1v1h-1zM8 21h1v1h-1zM11 21h1v1h-1zM12 21h1v1h-1zM14 21h1v1h-1zM15 21h1v1h-1zM17 21h1v1h-1zM18 21h1v1h-1zM19 21h1v1h-1zM21 21h1v1h-1zM22 21h1v1h-1zM23 21h1v1h-1zM24 21h1v1h-1zM25 21h1v1h-1zM26 21h1v1h-1zM29 21h1v1h-1zM9 22h1v1h-1zM10 22h1v1h-1zM11 22h1v1h-1zM13 22h1v1h-1zM16 22h1v1h-1zM18 22h1v1h-1zM19 22h1v1h-1zM20 22h1v1h-1zM21 22h1v1h-1zM25 22h1v1h-1zM29 22h1v1h-1zM1 23h1v1h-1zM2 23h1v1h-1zM3 23h1v1h-1zM4 23h1v1h-1zM5 23h1v1h-1zM6 23h1v1h-1zM7 23h1v1h-1zM9 23h1v1h-1zM10 23h1v1h-1zM13 23h1v1h-1zM14 23h1v1h-1zM15 23h1v1h-1zM16 23h1v1h-1zM17 23h1v1h-1zM19 23h1v1h-1zM20 23h1v1h-1zM21 23h1v1h-1zM23 23h1v1h-1zM25 23h1v1h-1zM26 23h1v1h-1zM27 23h1v1h-1zM29 23h1v1h-1zM1 24h1v1h-1zM7 24h1v1h-1zM14 24h1v1h-1zM18 24h1v1h-1zM19 24h1v1h-1zM21 24h1v1h-1zM25 24h1v1h-1zM29 24h1v1h-1zM1 25h1v1h-1zM3 25h1v1h-1zM4 25h1v1h-1zM5 25h1v1h-1zM7 25h1v1h-1zM9 25h1v1h-1zM11 25h1v1h-1zM12 25h1v1h-1zM13 25h1v1h-1zM14 25h1v1h-1zM17 25h1v1h-1zM18 25h1v1h-1zM20 25h1v1h-1zM21 25h1v1h-1zM22 25h1v1h-1zM23 25h1v1h-1zM24 25h1v1h-1zM25 25h1v1h-1zM26 25h1v1h-1zM28 25h1v1h-1zM1 26h1v1h-1zM3 26h1v1h-1zM4 26h1v1h-1zM5 26h1v1h-1zM7 26h1v1h-1zM10 26h1v1h-1zM12 26h1v1h-1zM14 26h1v1h-1zM15 26h1v1h-1zM16 26h1v1h-1zM17 26h1v1h-1zM19 26h1v1h-1zM20 26h1v1h-1zM21 26h1v1h-1zM29 26h1v1h-1zM1 27h1v1h-1zM3 27h1v1h-1zM4 27h1v1h-1zM5 27h1v1h-1zM7 27h1v1h-1zM10 27h1v1h-1zM14 27h1v1h-1zM15 27h1v1h-1zM16 27h1v1h-1zM18 27h1v1h-1zM20 27h1v1h-1zM26 27h1v1h-1zM27 27h1v1h-1zM28 27h1v1h-1zM29 27h1v1h-1zM1 28h1v1h-1zM7 28h1v1h-1zM12 28h1v1h-1zM13 28h1v1h-1zM15 28h1v1h-1zM17 28h1v1h-1zM18 28h1v1h-1zM19 28h1v1h-1zM20 28h1v1h-1zM21 28h1v1h-1zM22 28h1v1h-1zM23 28h1v1h-1zM25 28h1v1h-1zM26 28h1v1h-1zM28 28h1v1h-1zM29 28h1v1h-1zM1 29h1v1h-1zM2 29h1v1h-1zM3 29h1v1h-1zM4 29h1v1h-1zM5 29h1v1h-1zM6 29h1v1h-1zM7 29h1v1h-1zM9 29h1v1h-1zM12 29h1v1h-1zM13 29h1v1h-1zM17 29h1v1h-1zM18 29h1v1h-1zM20 29h1v1h-1zM21 29h1v1h-1zM22 29h1v1h-1zM23 29h1v1h-1zM25 29h1v1h-1zM28 29h1v1h-1z" fill="#24323a"/></svg>`;
+const SITE_URL = 'seowls734.github.io/asv26_11';
+const BOOTH = {on:false, last:performance.now(), attract:false, t:0, cap:-1, timer:0};
+const ATTRACT = {night:false};
+function boothOn(){ return /[?&]booth/.test(location.search) || !!SET.booth; }
+// ---------- 순위표 ----------
+let RANK_MEM = [];
+function loadRank(){ try{ return JSON.parse(localStorage.getItem('hbt_rank') || '[]') || []; }catch(e){ return RANK_MEM; } }
+function saveRank(r){ RANK_MEM = r; try{ localStorage.setItem('hbt_rank', JSON.stringify(r)); }catch(e){} }
+function rankHTML(n=5, hi=-1){
+  const r = loadRank().slice(0, n);
+  if(!r.length) return `<div class="rk-empty">아직 기록이 없어요 — 첫 번째 사장님이 되어 보세요! 👑</div>`;
+  return `<ol class="rk">${r.map((e, i) => `<li class="${i === hi ? 'me' : ''}"><span>${['🥇','🥈','🥉'][i] || (i + 1)}</span><b>${e.name.replace(/[<>&]/g, '')}</b><em>${won(e.score)}점</em></li>`).join('')}</ol>`;
+}
+// ---------- 1일 챌린지 ----------
+function startChallenge(){
+  S.challenge = true; startRole('owner');
+  toast('🏆 1일 챌린지 시작! 하루 동안 손님을 최대한 많이 씻겨 보내세요');
+  speak('일일 챌린지를 시작합니다. 손님을 많이 받으세요!');
+}
+function challengeScore(){
+  const ds = S.ds;
+  return Math.max(0, Math.round(ds.revenue + ds.served*3000 + (ds.vip||0)*5000 + (ds.calmed||0)*3000 + S.rep*10000 - ds.angry*4000));
+}
+function endChallenge(summaryHTML){
+  const sc = challengeScore(), r = loadRank(), place = r.filter(e => e.score > sc).length + 1;
+  speak(`챌린지 끝! ${sc}점입니다`);
+  showModal(`${summaryHTML}
+    <div class="ch-score"><small>🏆 챌린지 점수</small><b>${won(sc)}점</b><span>${place <= 10 ? `지금 순위 <b>${place}위</b>!` : '아쉽게 TOP 10 밖이에요'}</span></div>
+    <p style="font-size:12px;opacity:.75;text-align:center;margin:4px 0">점수 = 매출 + 만족 손님×3,000 + VIP×5,000 + 진상 달래기×3,000 + 평판×10,000 − 화난 손님×4,000</p>
+    <div style="display:flex;gap:6px;margin-top:8px"><input id="rkName" maxlength="8" placeholder="이름 (최대 8글자)" value="${(SET.nick || '').replace(/"/g, '&quot;')}" style="flex:1;font-size:18px;padding:8px 10px;border:3px solid #24323a;border-radius:10px;font-family:'Jua'"></div>`,
+    [['🏆 순위 등록', () => {
+      const name = ($('#rkName').value || '').replace(/[<>&]/g, '').trim().slice(0, 8) || '익명 사장님';
+      const list = loadRank(); list.push({name, score:sc, served:S.ds.served, d:Date.now()});
+      list.sort((a, b) => b.score - a.score); const kept = list.slice(0, 10); saveRank(kept);
+      const hi = kept.findIndex(e => e.name === name && e.score === sc);
+      sfx.bell(); showRankBoard(hi);
+    }, 'primary'], ['건너뛰기', () => showRankBoard(-1)]]);
+  setTimeout(() => { const i = $('#rkName'); if(i){ i.focus(); i.addEventListener('keydown', e => { if(e.key === 'Enter') document.querySelector('#modal .actions button').click(); }); } }, 50);
+}
+function showRankBoard(hi){
+  showModal(`<h2>🏆 행복탕 사장님 순위표</h2>${rankHTML(10, hi)}
+    <div class="qr-row"><div class="qr">${QR_SVG}</div><p>📱 휴대폰으로 찍으면<br>집에서도 할 수 있어요!<br><small>${SITE_URL}</small></p></div>`,
+    [['👋 다음 사람 차례', () => { location.hash = 'title'; location.reload(); }, 'primary'], ['🎮 이어서 계속 하기', () => { S.challenge = false; goNight(); }]]);
+}
+// ---------- 자동 시연 (어트랙트) ----------
+const TOUR = [
+  {t:[0, 0, -.5],   yaw:.35, pitch:.92, zoom:.95, cap:'♨️ 손님을 탕에 안내하고 동네 최고의 목욕탕을 만들어요'},
+  {t:[-1, 1.4, -4], yaw:.05, pitch:.42, zoom:.5,  cap:'🌡️ 온탕 39~42℃ · 냉탕 15~20℃, 온도와 청결을 관리해요'},
+  {t:[6, .8, 3],    yaw:-.6, pitch:.55, zoom:.55, cap:'🍫 코코아 자판기 · 🍌 바나나우유 · 👑 VIP와 👿 진상 손님까지!'},
+  {t:[18, 0, 12.5], yaw:.95, pitch:.42, zoom:.95, cap:'🚗 내 차로 동네를 드라이브 · 🚌 마을버스와 신호등'},
+  {t:[72.5, 1, 1],  yaw:.1,  pitch:.6,  zoom:.8,  cap:'🏎️ 행복모터스에서 새 차를 사요'},
+  {t:[100, 0, 6],   yaw:.25, pitch:.5,  zoom:1.0, cap:'🎤 코인노래방 · 🖥️ PC방 · 💇 미용실 · 🍢 분식, 모든 가게에서 알바와 놀이!'},
+  {t:[-20, 4, -38], yaw:.5,  pitch:.22, zoom:1.1, cap:'🌉 한강공원 산책 · 오리배와 유람선'},
+  {t:[0, 12, -45],  yaw:.0,  pitch:.12, zoom:1.7, cap:'🌃 밤이 되면 서울 야경과 남산 타워가 반짝여요', night:true},
+  {t:[24, 1, 2],    yaw:.3,  pitch:.7,  zoom:.7,  cap:'🏠 집에 방범 모드를 켜면 월패드가 침입을 감지해요! 🚨'}
+];
+const SEG = 7; // 장면 하나 7초
+function startAttract(){
+  if(BOOTH.attract) return;
+  BOOTH.attract = true; BOOTH.t = 0; BOOTH.cap = -1;
+  hideModal();
+  if(S.phase === 'menu'){ startRole('customer'); PLAYER.p.g.visible = false; PLAYER.tag.style.display = 'none'; }
+  S.paused = false; PLAYER.follow = false;
+  $('#attract').classList.remove('hidden');
+  $('#atRank').innerHTML = rankHTML(5);
+}
+function stopAttract(){ if(!BOOTH.attract) return; location.hash = 'title'; location.reload(); }
+const smooth = x => x*x*(3 - 2*x);
+function updateAttract(dt){
+  if(!BOOTH.attract) return;
+  BOOTH.t += dt;
+  const n = TOUR.length, i = Math.floor(BOOTH.t / SEG) % n, f = (BOOTH.t % SEG) / SEG, a = TOUR[i], b = TOUR[(i + 1) % n];
+  const k = f < .7 ? 0 : smooth((f - .7) / .3); // 70%는 머물며 천천히 돌고, 30%는 다음 장면으로 이동
+  const drift = f * .25;
+  cam.target.set(a.t[0] + (b.t[0] - a.t[0])*k, a.t[1] + (b.t[1] - a.t[1])*k, a.t[2] + (b.t[2] - a.t[2])*k);
+  cam.yaw = a.yaw + drift + (b.yaw - a.yaw - .25)*k; cam.pitch = a.pitch + (b.pitch - a.pitch)*k; cam.zoom = a.zoom + (b.zoom - a.zoom)*k;
+  ATTRACT.night = (a.night && k < .5) || (b.night && k >= .5);
+  if(i !== BOOTH.cap){ BOOTH.cap = i; const c = $('#atCap'); c.classList.remove('show'); void c.offsetWidth; c.textContent = a.cap; c.classList.add('show'); }
+}
+function setupBooth(){
+  BOOTH.on = boothOn();
+  const poke = () => { BOOTH.last = performance.now(); if(BOOTH.attract) stopAttract(); };
+  ['keydown', 'pointerdown', 'touchstart', 'wheel'].forEach(ev => window.addEventListener(ev, poke, {capture:true, passive:true}));
+  $('#atQR').innerHTML = QR_SVG;
+  setInterval(() => {
+    if(!BOOTH.on || BOOTH.attract) return;
+    const idle = (performance.now() - BOOTH.last) / 1000;
+    if(S.phase === 'menu' && idle > 25) startAttract();
+    else if(S.phase !== 'menu' && idle > 90){ location.hash = 'attract'; location.reload(); }
+  }, 1000);
+  if(location.hash === '#attract' && BOOTH.on) setTimeout(startAttract, 600);
+}
 /* ======================= 🎒 가방 · ⚙️ 설정(닉네임·화질) ======================= */
 // 입력창에 글자를 칠 때는 게임 키(WASD·E 등)가 움직이지 않게 막아요 (가장 먼저 등록되는 리스너)
 const typing = e => !!(e.target && e.target.matches && e.target.matches('input, textarea'));
@@ -970,6 +1099,9 @@ function openSettings(){
     <p style="font-family:Jua;margin:14px 0 4px">🖥️ 화질</p>
     <div style="display:flex;flex-wrap:wrap;gap:6px">${Object.entries(QUALITY).map(([k, q]) => `<button class="btn q-btn" data-q="${k}" style="${SET.quality === k ? 'background:#ffe48a' : ''}">${q.name}</button>`).join('')}</div>
     <p style="font-size:12px;opacity:.7;margin:4px 0 0">${(QUALITY[SET.quality] || QUALITY.sharp).desc} · 화면 배율 ×${renderer.getPixelRatio().toFixed(2)}</p>
+    <p style="font-family:Jua;margin:14px 0 4px">🎪 전시 모드 (해커톤 부스용)</p>
+    <button class="btn" id="boothT">${BOOTH.on ? '🎪 켜짐' : '꺼짐'}</button>
+    <p style="font-size:12px;opacity:.7;margin:4px 0 0">켜면 아무도 안 만질 때 자동 시연, 90초 동안 입력이 없으면 처음 화면으로 돌아가요 (주소 끝에 ?booth 를 붙여도 켜져요)</p>
     <p style="font-family:Jua;margin:14px 0 4px">🔊 소리</p>
     <button class="btn" id="sndT">${sound ? '🔊 켜짐' : '🔇 꺼짐'}</button>`,
     [['닫기', placeClose, 'primary']]);
@@ -977,6 +1109,7 @@ function openSettings(){
   $('#nickSave').onclick = save;
   $('#nickIn').addEventListener('keydown', e => { if(e.key === 'Enter') save(); });
   document.querySelectorAll('.q-btn').forEach(b => b.onclick = () => { SET.quality = b.dataset.q; saveSettings(); applyQuality(); toast(`🖥️ 화질: ${QUALITY[SET.quality].name}`); openSettings(); });
+  $('#boothT').onclick = () => { SET.booth = !BOOTH.on; saveSettings(); BOOTH.on = boothOn(); BOOTH.last = performance.now(); openSettings(); };
   $('#sndT').onclick = () => { sound = !sound; $('#soundBtn').textContent = sound ? '🔊' : '🔇'; openSettings(); };
 }
 function setupBagSettings(){
@@ -3635,7 +3768,7 @@ function buildWeatherFx(){
 }
 function updateWeather(dt){
   const w = WEATHER[S.weather], fx = W.fx, k = Math.min(1, dt*1.5);
-  const nt = (S.phase==='night' || S.phase==='sleeping') ? 1 : 0;
+  const nt = (S.phase==='night' || S.phase==='sleeping' || ATTRACT.night) ? 1 : 0;
   W.night = (W.night||0) + (nt - (W.night||0)) * k;
   scene.background.lerp(new THREE.Color(w.sky).lerp(NIGHT_SKY, W.night), k); scene.fog.color.copy(scene.background);
   W.sun.intensity += (w.sun*(1 - W.night*.9) - W.sun.intensity)*k;
@@ -4309,6 +4442,7 @@ function loop(ts){
     updateDealer(dt);
     updateBath(dt);
     updateSparkles();
+    updateAttract(dt);
   }
   updateCamera();
   followSun();
@@ -4365,6 +4499,7 @@ function endDay(){
   // 다시 시작(게임 오버) 없음: 돈이 바닥나거나 평판이 낮아도 경고만 하고 계속 영업해요
   const warn = (S.money < 0 ? `<p style="text-align:center;margin-top:12px;color:#d9483b">💸 통장이 마이너스예요! 알바를 하거나 손님을 더 받아서 메워 봐요.</p>` : '')
              + (S.rep < 1.4 ? `<p style="text-align:center;margin-top:12px;color:#d9483b">😢 평판이 많이 낮아요… 청소와 온도 관리로 다시 올려 봐요!</p>` : '');
+  if(S.challenge) return endChallenge(html);
   if(S.day >= DAYS && !S.endless) return showModal(html + warn, [['최종 결과 보기 🏆', showEnding, 'primary']]);
   showModal(html + warn + `<p style="text-align:center;margin-top:10px">🌙 오늘 영업 끝! <b>🏠 우리 집(행복아파트)</b>에 가서 침대에서 <b>E</b>를 눌러 자면 다음 날 아침이 와요.</p>`, [['🌙 퇴근하기', goNight, 'primary']]);
 }
@@ -4459,8 +4594,9 @@ function showTitle(){
       <li>목욕탕 왼쪽 거리의 <b>🏪 편의점</b>에서 우유·세제·맥반석 계란·식혜·우산을 살 수 있어요.</li>
       <li><b>WASD</b>(또는 방향키)로 사장님을 직접 움직여요. <b>Shift</b>를 누르면 달려요. 손님이나 시설 가까이에서 <b>E</b>를 누르면 안내·판매, <b>R</b>은 청소, <b>F</b>는 온도 조절이에요. 휴대폰은 왼쪽 아래 조이스틱과 E 버튼을 써요.</li>
       <li><b>시점</b>: 화면을 끌면 360도 돌리고 위아래 각도도 바뀌어요. 우클릭(또는 Shift)+드래그로 카메라 이동, 휠로 확대. 휴대폰은 한 손가락으로 회전, 두 손가락으로 확대·이동. ⟲ 버튼은 원래 시점으로 돌아가요.</li>
-    </ul>`,
-    [['🧑‍💼 사장으로 시작', () => startRole('owner'), 'primary'], ['🧖 손님으로 시작', () => startRole('customer'), 'primary']]);
+    </ul>
+    <div class="title-ex"><div><b class="jua">🏆 오늘의 TOP 5</b>${rankHTML(5)}</div><div class="qr-row"><div class="qr">${QR_SVG}</div><p>📱 폰으로도<br>해 보세요!<br><small>${SITE_URL}</small></p></div></div>`,
+    [['🏆 1일 챌린지 (약 2분)', startChallenge, 'primary'], ['🧑‍💼 사장으로 시작', () => startRole('owner'), 'primary'], ['🧖 손님으로 시작', () => startRole('customer'), 'primary']]);
 }
 
 /* ======================= 시작 ======================= */
@@ -4597,6 +4733,7 @@ function init(){
   $('#soundBtn').addEventListener('click', () => { sound = !sound; $('#soundBtn').textContent = sound ? '🔊' : '🔇'; });
   setupPhone();
   setupBagSettings();
+  setupBooth();
   document.addEventListener('keydown', e => { if(e.key==='Escape') setSelected(null); });
   $('#loading').remove();
   showTitle();

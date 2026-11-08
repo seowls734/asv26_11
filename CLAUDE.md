@@ -69,6 +69,7 @@
 14. **역할**: `startRole`, `applyRoleLook`, `useFacility/finishMe`(손님이 직접 이용), `autoManage`
 15. **프리미엄**: `PREM_PRICE = 1,000,000`, `premDoor`, `enterPrem/exitPrem`, `soakJacuzzi`, 숙면 보너스(`S.sleptPrem`)
 16. **관리자**: `ADMIN`, `openAdmin`, `adminAction`
+16-7. **🎪 전시(부스) 모드·🏆 1일 챌린지**: `?booth` 주소 또는 설정 '전시 모드'(`SET.booth`) → `BOOTH`. 시작 화면에서 25초 무입력 → `startAttract()`(손님 모드로 동네를 살리고 `TOUR` 카메라 투어 7초씩, `#attract` 오버레이: 제목·장면 설명·시작 버튼·TOP5·QR, 밤 장면은 `ATTRACT.night`), 아무 입력 → `#title`로 새로고침. 게임 중 90초 무입력 → `#attract`로 새로고침. 시작 화면 '1일 챌린지' → `startChallenge`(`S.challenge`), 하루 끝 `endChallenge` 점수(`challengeScore`) → 이름 등록 → `showRankBoard`(`localStorage['hbt_rank']` TOP10). QR은 `QR_SVG`(인라인 SVG, 사이트 주소).
 16-6. **🎒 가방 · ⚙️ 설정**: HUD `#bagBtn`(B 키) → `openBag()`, `S.bag`(id → {ico,name,qty,kind:'food'|'drink'|'toy',fresh}), `bagAdd/bagUse`, 최대 `BAG_MAX`=24. 음식 메뉴에서 '😋 바로 먹기 / 🎒 가방에 넣기', 문구점 뽑기 상품은 자동으로 가방에. 소지품(휴대폰·차·머리·안경·펫·집)도 표시. HUD `#setBtn` → `openSettings()`: 닉네임(`SET.nick`, 최대 8자, 이름표 `applyNameTag`/`myName`), 화질 `QUALITY`(ultra/sharp/fast → `applyQuality`: pixelRatio 슈퍼샘플링·텍스처 anisotropy `MAX_ANISO`·그림자 해상도), 소리. 설정은 `localStorage['hbt_settings']`(try/catch). 입력창에 글자 칠 때 게임 키 막기: `typing(e)` + document keydown 가드.
 16-5. **📱 휴대폰 + 🛡️ 방범모드 + 월패드**: `SEC`, HUD `#phoneBtn`/P 키 → `togglePhone`·`renderPhone`(앱: 행복 방범·날씨·지갑·알림). `setSecurity(on, by)` → `S.security`, 기록 `S.secLog`. 켠 채로 `enterHome()` → `triggerAlarm()`: `#wallpad` 빨간 경보 화면 + 사이렌 + 음성(`speak()`, speechSynthesis ko-KR) "침입이 감지되었습니다". 해제: 월패드 키패드 비밀번호 `SEC.code`='1234'(키보드 숫자·Enter도 됨) 또는 휴대폰 앱. 집 안 현관 옆 3D 월패드(`buildWallpad3D`, E로 열기). 경보 중엔 게임 일시정지.
 16-4. **행복탕 리모델링·코코아 자판기**: `BATH`, `buildBathUpgrade()`(buildOutside 끝), `updateBath`. 기본 장식(네온 간판 테두리·홍등·화분·벽시계·대기실 TV·모자이크 띠). 상점 `UPG` 'remodel'(최대 3단계, 요금 +10%·만족도 +4/단계): 1 금빛 장식·방석·굴뚝 SPA 간판 / 2 실내 폭포·대나무 / 3 샹들리에·레드카펫·별 명판 (`BATH.lvG` 보이기). 코코아 자판기 (7.6, 2.0): `nearCocoa/useCocoa`, 손님이 나갈 때 `cocoaSale`(사장 모드, 1,500원, 비·눈 오면 더 잘 팔림), `S.cocoa` 매일 아침 12잔.
@@ -140,3 +141,4 @@
 23. 포스터(`poster/`), 다시 시작 버튼 제거(게임 오버 없음·7일 뒤 계속하기)
 24. 광택: 타일·물·차에 반사 광택, 깨끗한 시설 위 반짝이 ✨
 25. 🎒 가방 시스템, ⚙️ 설정(닉네임 변경·화질 3단계·소리), 화질 선명하게(슈퍼샘플링·텍스처 선명도)
+26. 해커톤 전시: 자동 시연(어트랙트 모드)·1일 챌린지·순위표·QR 코드·무입력 자동 초기화 (`?booth`)

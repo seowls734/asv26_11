@@ -824,6 +824,7 @@ function buildOutside(){
   buildStationInterior();
   buildTrainInterior();
   buildJobStations();
+  buildMilkTruck();
   buildSeoul();
   box(1.6,.1,.45,M('#a8703c'),6,.45,9.1); box(1.6,.4,.06,M('#a8703c'),6,.7,8.9);
   box(.06,.42,.4,M('#555'),5.3,.21,9.1); box(.06,.42,.4,M('#555'),6.7,.21,9.1);
@@ -2434,6 +2435,60 @@ PLACE_T['행복 경찰서'] = {icon:'🚓', job:['순찰 보조', ['🚓','👮'
 ACTS.joinFire = {label:'👨‍🚒 소방관 입사하기 / 퇴사', run: pl => result(pl, '🚒 행복 소방서', joinJob('fire'))};
 ACTS.joinPolice = {label:'👮 경찰관 입사하기 / 퇴사', run: pl => result(pl, '🚓 행복 경찰서', joinJob('police'))};
 ACTS.callNow = {label:'📟 바로 출동 지령 받기', run: pl => { if(!S.job) return result(pl, '📟 출동', '먼저 입사해야 출동할 수 있어요!'); if(JOB.mission) return result(pl, '📟 출동', '이미 출동 중이에요!'); placeClose(); JOB.timer = .5; }};
+/* ======================= 🚚 바나나우유 배달 트럭 ======================= */
+// 사장 모드에서 바나나우유가 0병이 되면 트럭이 큰길(0번 차선)로 들어와 행복탕 앞에 멈추고,
+// 기사님이 상자를 들고 들어가 냉장고를 가득 채워요 (1병 1,500원, 자동 결제) → 다시 떠나요.
+const MT = {g:null, man:null, crate:null, state:'off', x:0, t:0, cool:0, lamps:[]};
+function buildMilkTruck(){
+  const g = new THREE.Group(), yel = new THREE.MeshPhongMaterial({color:'#ffd94a', shininess:70, specular:'#555', envMap:envTex(), combine:THREE.MixOperation, reflectivity:.12});
+  box(1.4, 1.5, 1.6, M('#f4f6f8'), 1.9, 1.05, 0, g);                               // 운전석 (앞 = -x 방향으로 달려요 → 아래에서 회전)
+  box(.06, .6, 1.4, CAR_GLASS, 2.62, 1.4, 0, g);
+  const cargo = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.0, 1.75), [yel, yel, yel, yel,
+    sMat(textTex(['🍌 바나나우유', '신선 배달'], {w:512, h:280, bg:'#ffd94a', fg:'#5a3a00', border:'#5a3a00', font:72})),
+    sMat(textTex(['🍌 바나나우유', '신선 배달'], {w:512, h:280, bg:'#ffd94a', fg:'#5a3a00', border:'#5a3a00', font:72}))]);
+  cargo.position.set(-.7, 1.35, 0); cargo.castShadow = true; g.add(cargo);
+  const bottle = new THREE.Group(); bottle.position.set(-.7, 2.35, 0); g.add(bottle);   // 지붕 위 큰 우유병
+  mesh(new THREE.CylinderGeometry(.45, .55, 1.1, 16), yel, 0, .55, 0, bottle); mesh(new THREE.CylinderGeometry(.22, .4, .35, 16), yel, 0, 1.25, 0, bottle);
+  mesh(new THREE.CylinderGeometry(.24, .24, .15, 16), M('#3fa34d'), 0, 1.5, 0, bottle);
+  [-1.6, .3, 2.0].forEach(x => [-1, 1].forEach(s => { const w = cyl(.32, .32, .22, M('#1d1d1d'), x, .32, s*.8, g, 14); w.rotation.x = Math.PI/2; }));
+  box(.05, .14, .35, M('#fff6c8'), 2.62, .7, .5, g); box(.05, .14, .35, M('#fff6c8'), 2.62, .7, -.5, g);
+  [-.75, .75].forEach(z => { const l = new THREE.MeshLambertMaterial({color:'#ffa020', emissive:'#ff8a00', emissiveIntensity:0}); box(.06, .12, .2, l, -2.52, .8, z, g); MT.lamps.push(l); });  // 비상등
+  g.rotation.y = Math.PI;   // 앞(+x)이 -x 쪽을 보게 → 0번 차선 방향
+  g.visible = false; scene.add(g); MT.g = g;
+  MT.man = makePerson({name:'배달 기사', skin:'#f1c49c', hair:'#3a2a20', style:'short', towel:'#3fa34d', shirt:'#ffd94a', s:1}); MT.man.g.visible = false;
+  box(.5, .14, .5, M('#3fa34d'), 0, .28, 0, MT.man.head);
+  MT.crate = new THREE.Group(); MT.man.g.add(MT.crate); MT.crate.position.set(0, 1.0, .35);
+  box(.6, .35, .4, M('#3fa34d'), 0, 0, 0, MT.crate); for(let i=0;i<6;i++) cyl(.05, .055, .2, M('#ffd94a'), -.2 + (i%3)*.2, .25, -.08 + Math.floor(i/3)*.16, MT.crate, 8);
+}
+function updateMilkTruck(dt){
+  if(!MT.g || !S) return;
+  MT.cool -= dt;
+  const STOP_X = 3.2, LANE_Z = 12.1;
+  if(MT.state === 'off'){
+    if(S.role === 'owner' && (S.phase === 'day' || S.phase === 'closing') && S.milk.stock <= 0 && MT.cool <= 0){
+      MT.state = 'in'; MT.x = 75; MT.g.visible = true; toast('🚚 바나나우유가 다 떨어져서 배달 트럭을 불렀어요!'); }
+    return;
+  }
+  MT.lamps.forEach(l => l.emissiveIntensity = MT.state === 'stop' ? (Math.sin(T*10) > 0 ? 1.2 : 0) : 0);
+  if(MT.state === 'in'){ const d = MT.x - STOP_X, v = Math.max(2.5, Math.min(14, d*1.1)); MT.x -= v*dt; if(MT.x <= STOP_X){ MT.x = STOP_X; MT.state = 'stop'; MT.t = 0; beep(392, .2, 'square', .04); setTimeout(() => beep(494, .25, 'square', .04), 220); MT.man.g.visible = true; } }
+  else if(MT.state === 'stop'){
+    MT.t += dt;
+    // 기사님: 트럭 → 행복탕 입구 → 트럭
+    const k = MT.t < 2.2 ? MT.t/2.2 : MT.t < 2.8 ? 1 : Math.max(0, 1 - (MT.t - 2.8)/2.2);
+    const x0 = STOP_X - .5, z0 = LANE_Z - 1.4, x1 = 1.6, z1 = 7.4;
+    MT.man.g.position.set(x0 + (x1 - x0)*k, 0, z0 + (z1 - z0)*k); MT.man.g.rotation.y = MT.t < 2.5 ? Math.atan2(x1 - x0, z1 - z0) : Math.atan2(x0 - x1, z0 - z1);
+    setPose(MT.man, (MT.t > 2.2 && MT.t < 2.8) ? 'stand' : 'walk', dt);
+    MT.crate.visible = MT.t < 2.5;
+    if(MT.t >= 2.5 && !MT.paid){ MT.paid = true;
+      const n = S.milk.max - Math.max(0, S.milk.stock), cost = n*1500;
+      S.milk.stock = S.milk.max; S.money -= cost; if(S.ds) S.ds.cost += cost; updateHUD(); sfx.coin();
+      if(F.milk && F.milk.plate) pop(F.milk.plate, `🚚 바나나우유 +${n}병 (−${won(cost)}원)`);
+      toast(`🍌 바나나우유 ${n}병 배달 완료! (${won(cost)}원)`); }
+    if(MT.t >= 5.2){ MT.state = 'out'; MT.man.g.visible = false; MT.paid = false; }
+  }
+  else if(MT.state === 'out'){ MT.x -= 12*dt; if(MT.x < -75){ MT.state = 'off'; MT.g.visible = false; MT.cool = 8; } }
+  MT.g.position.set(MT.x, 0, LANE_Z);
+}
 /* ======================= 행복모터스 (자동차 매장 + 고급 자동차 모델) ======================= */
 // 가상 브랜드 '행복모터스'. 차 앞쪽 = 로컬 +x (내 차와 같은 방향). 매장은 연장된 길 x 62.5~82.5 에 있어요.
 const CAR_MODELS = {
@@ -5290,6 +5345,7 @@ function loop(ts){
     updateFireworks(dt);
     updateRail(dt);
     updateJob(dt);
+    updateMilkTruck(dt);
   }
   updateCamera();
   followSun();

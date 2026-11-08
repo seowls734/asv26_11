@@ -750,6 +750,7 @@ function building(x, z, w, d, h, base, opt={}){
   return b;
 }
 function tree(x, z, s=1){
+  regTree(x, z, 2.2*s, .8*s, pick(['#c98a2e','#d9a441','#b8642e','#8cb84e']));
   cyl(.12*s,.16*s,1.4*s,M('#7a5233'),x,.7*s,z,scene,8);
   sph(.8*s,M('#5aa864'),x,1.9*s,z,scene,12); sph(.55*s,M('#6dbb72'),x+.35*s,2.35*s,z+.2*s,scene,10); sph(.5*s,M('#4e9a59'),x-.4*s,2.2*s,z-.15*s,scene,10);
 }
@@ -825,6 +826,8 @@ function buildOutside(){
   buildTrainInterior();
   buildJobStations();
   buildMilkTruck();
+  buildMountain();
+  buildLeaves();
   buildSeoul();
   box(1.6,.1,.45,M('#a8703c'),6,.45,9.1); box(1.6,.4,.06,M('#a8703c'),6,.7,8.9);
   box(.06,.42,.4,M('#555'),5.3,.21,9.1); box(.06,.42,.4,M('#555'),6.7,.21,9.1);
@@ -2489,6 +2492,130 @@ function updateMilkTruck(dt){
   else if(MT.state === 'out'){ MT.x -= 12*dt; if(MT.x < -75){ MT.state = 'off'; MT.g.visible = false; MT.cool = 8; } }
   MT.g.position.set(MT.x, 0, LANE_Z);
 }
+/* ======================= ⛰️ 행복산 (등산) · 🍂 낙엽 ======================= */
+// 행복탕 앞 큰길 건너(남쪽)에 단풍 든 산. 땅 높이 mtnY(x,z)를 따라 걸어 올라가요. 꼭대기 정자에서 정상 인증!
+const MTN = {x:0, z:64, H:34, sig:15, R:40, e0:0, done:-1};
+MTN.e0 = Math.exp(-(MTN.R*MTN.R)/(2*MTN.sig*MTN.sig));
+function mtnY(x, z){
+  const dx = x - MTN.x, dz = z - MTN.z, r2 = dx*dx + dz*dz;
+  if(r2 >= MTN.R*MTN.R) return 0;
+  const g = (Math.exp(-r2/(2*MTN.sig*MTN.sig)) - MTN.e0)/(1 - MTN.e0);
+  return Math.max(0, MTN.H*g*(1 + .07*Math.sin(dx*.35)*Math.cos(dz*.28)));
+}
+function groundAt(x, z){ return (PLAYER.inHome || PLAYER.inStore || PLAYER.inPrem || PLAYER.inStation || PLAYER.inTrain) ? 0 : mtnY(x, z); }
+// 🍂 낙엽: 나무 위치를 모아 두고, 카메라 근처 나무에서 잎이 팔랑팔랑 떨어져요
+const LEAF = {trees:[], mesh:null, data:[], N:420, near:[], t:0, dummy:null};
+function regTree(x, z, y, r, c){ LEAF.trees.push({x, z, y, r, c}); }
+function mtnTree(x, z, s, c){
+  const y = mtnY(x, z);
+  mesh(new THREE.CylinderGeometry(.12*s, .17*s, 1.4*s, 6), M('#6b4a30'), x, y + .6*s, z, scene, true);
+  const cone = mesh(new THREE.ConeGeometry(.95*s, 2.6*s, 8), M(c), x, y + 2.3*s, z, scene, true);
+  sph(.55*s, M(c), x + .3*s, y + 1.8*s, z + .2*s, scene, 8);
+  regTree(x, z, y + 2.6*s, .9*s, c);
+}
+function buildMountain(){
+  const seg = 90, size = MTN.R*2 + 4;
+  const geo = new THREE.PlaneGeometry(size, size, seg, seg); geo.rotateX(-Math.PI/2);
+  const pos = geo.attributes.position, cols = [];
+  const cA = new THREE.Color('#7fa85a'), cB = new THREE.Color('#c98a2e'), cC = new THREE.Color('#b8402e'), cD = new THREE.Color('#9a8f7f'), tmp = new THREE.Color();
+  for(let i=0;i<pos.count;i++){
+    const x = pos.getX(i) + MTN.x, z = pos.getZ(i) + MTN.z, y = mtnY(x, z);
+    pos.setY(i, y - .03);
+    const k = y/MTN.H, n = (Math.sin(x*.7)*Math.cos(z*.6) + 1)/2;
+    tmp.copy(cA).lerp(n > .55 ? cB : cC, Math.min(1, k*1.8)*(.5 + n*.5)); if(k > .82) tmp.lerp(cD, (k - .82)*4);
+    if(y < .05) tmp.set('#cfc8b8');
+    cols.push(tmp.r, tmp.g, tmp.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({vertexColors:true}));
+  m.position.set(MTN.x, 0, MTN.z); m.receiveShadow = true; scene.add(m); MTN.mesh = m;
+  // 단풍나무 숲
+  const COLS = ['#e8862e', '#d9482b', '#f2c230', '#c8642e', '#b8402e', '#6f9a4a', '#f2b632'];
+  for(let i=0;i<110;i++){ const a = Math.random()*Math.PI*2, r = rnd(5, MTN.R - 4), x = MTN.x + Math.sin(a)*r, z = MTN.z + Math.cos(a)*r;
+    if(Math.abs(trailDist(x, z)) < 1.6 || z < 23) continue; mtnTree(x, z, rnd(.9, 1.5), pick(COLS)); }
+  // 등산로: 산 둘레를 감아 올라가는 흙길 + 나무 계단 + 밧줄 난간 기둥
+  const pts = trailPoints();
+  for(let i=0;i<pts.length - 1;i++){ const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], mx = (x0 + x1)/2, mz = (z0 + z1)/2, len = Math.hypot(x1 - x0, z1 - z0);
+    const y0 = mtnY(x0, z0), y1 = mtnY(x1, z1);
+    const st = mesh(new THREE.BoxGeometry(len + .05, .08, 1.5), M(i%2 ? '#b08a5a' : '#a67c4e'), mx, (y0 + y1)/2 + .05, mz, scene, false);
+    st.rotation.order = 'YXZ'; st.rotation.y = Math.atan2(-(z1 - z0), x1 - x0); st.rotation.z = Math.atan2(y1 - y0, len);
+    if(i % 6 === 0){ const px = mx + Math.cos(st.rotation.y + Math.PI/2)*.95, pz = mz - Math.sin(st.rotation.y + Math.PI/2)*.95; cyl(.05, .06, .9, M('#6b4a30'), px, mtnY(px, pz) + .45, pz, scene, 6); }
+  }
+  // 입구 표지판 (큰길 건너 인도)
+  const sx = pts[0][0], sz = 20.6;
+  box(.15, 2.6, .15, M('#6b4a30'), sx - 1.3, 1.3, sz); box(.15, 2.6, .15, M('#6b4a30'), sx + 1.3, 1.3, sz);
+  const sg = plane(3, 1.1, sMat(textTex(['⛰️ 행복산 등산로', '정상까지 약 900m · 해발 340m'], {w:512, h:190, bg:'#5a3a1d', fg:'#fff4dc', border:'#c98a2e', font:46})), sx, 2.1, sz - .08); sg.rotation.y = Math.PI;
+  box(3.2, .3, .4, M('#8b4a34'), sx, 2.85, sz);
+  // 중간 쉼터 벤치
+  [Math.floor(pts.length*.35), Math.floor(pts.length*.7)].forEach(i => { const [x, z] = pts[i], y = mtnY(x, z) + .02;
+    const g = group(x + 1.4, y, z); box(1.4, .1, .45, M('#a8703c'), 0, .45, 0, g); [-.6, .6].forEach(dx => box(.08, .45, .4, M('#555'), dx, .22, 0, g)); });
+  // 정상: 정자 + 정상석
+  const sy = mtnY(MTN.x, MTN.z), pg = group(MTN.x, sy - .2, MTN.z);
+  const fl = cyl(3.2, 3.4, .4, M('#c9c4b8'), 0, .2, 0, pg, 8);
+  [[-2.2, -2.2], [2.2, -2.2], [-2.2, 2.2], [2.2, 2.2]].forEach(([x, z]) => cyl(.15, .18, 3, M('#a8323e'), x, 1.9, z, pg, 8));
+  box(5, .35, 5, M('#3f8a6b'), 0, 3.5, 0, pg);
+  const roof = mesh(new THREE.ConeGeometry(4.0, 1.8, 4), M('#2f5f4f'), 0, 4.55, 0, pg); roof.rotation.y = Math.PI/4;
+  sph(.25, M('#d4af37'), 0, 5.5, 0, pg, 8);
+  const stone = group(MTN.x + 4.2, mtnY(MTN.x + 4.2, MTN.z - 1) , MTN.z - 1);
+  box(1.0, 1.8, .6, M('#8a8f94'), 0, .9, 0, stone);
+  const ss = plane(.9, 1.5, sMat(textTex(['행','복','산','340m'], {w:128, h:240, bg:'#8a8f94', fg:'#ffffff', border:false, font:46})), 0, .95, -.31, stone); ss.rotation.y = Math.PI;
+  MTN.top = {x:MTN.x, z:MTN.z};
+  // 차는 산으로 못 올라가요
+  CAR_BLOCK.push([-110, 20.2, 110, 120]);
+}
+function trailPoints(){
+  const out = []; const turns = 2.35, n = 120;
+  for(let i=0;i<=n;i++){ const t = i/n, r = (MTN.R - 2)*(1 - t) + 2.8*t, a = t*turns*Math.PI*2;
+    out.push([MTN.x + Math.sin(a)*r, MTN.z - Math.cos(a)*r]); }
+  return out;
+}
+let TRAIL_PTS = null;
+function trailDist(x, z){ TRAIL_PTS = TRAIL_PTS || trailPoints(); let d = 1e9; for(const [px, pz] of TRAIL_PTS) d = Math.min(d, Math.hypot(x - px, z - pz)); return d; }
+function checkSummit(){
+  if(MTN.done === S.day) return;
+  if(Math.hypot(PLAYER.x - MTN.x, PLAYER.z - MTN.z) < 3.5 && groundAt(PLAYER.x, PLAYER.z) > MTN.H*.85){
+    MTN.done = S.day;
+    speak('행복산 정상에 도착했습니다! 수고하셨어요');
+    const fun = funReward({key:'mountain'}, 'summit', 18);
+    bagAdd({id:'badge_mtn', ico:'🏅', name:'행복산 정상 배지', kind:'toy', desc:'해발 340m 등정 기념'});
+    toast(`🏔️ 행복산 정상 도착! 해발 340m 🏅 배지를 받았어요 · ${fun}`); sfx.bell();
+  }
+}
+// ---------- 낙엽 ----------
+function buildLeaves(){
+  const geo = new THREE.PlaneGeometry(.42, .3);
+  const mat = new THREE.MeshLambertMaterial({side:THREE.DoubleSide});
+  LEAF.mesh = new THREE.InstancedMesh(geo, mat, LEAF.N); LEAF.mesh.frustumCulled = false; scene.add(LEAF.mesh);
+  LEAF.dummy = new THREE.Object3D();
+  const c = new THREE.Color();
+  for(let i=0;i<LEAF.N;i++){ const d = {x:0, y:-50, z:0, vy:0, ph:rnd(0, 6), f:rnd(1.5, 3), amp:rnd(.4, 1.1), rx:rnd(0, 6), ry:rnd(0, 6), sp:rnd(2, 5), rest:rnd(0, 6), g:0};
+    LEAF.data.push(d); c.set('#f2c230'); LEAF.mesh.setColorAt(i, c); }
+  LEAF.mesh.instanceColor.needsUpdate = true;
+}
+function leafSpawn(d, i){
+  const T_ = pick(LEAF.near); if(!T_){ d.y = -50; return; }
+  const a = Math.random()*Math.PI*2, r = Math.random()*T_.r;
+  d.x = T_.x + Math.cos(a)*r; d.z = T_.z + Math.sin(a)*r; d.y = T_.y + rnd(-.6, .4); d.vy = rnd(.5, 1.0); d.rest = 0;
+  d.g = groundAt(d.x, d.z);
+  const c = new THREE.Color(T_.c); c.offsetHSL(rnd(-.03, .03), 0, rnd(-.08, .08)); LEAF.mesh.setColorAt(i, c); LEAF.mesh.instanceColor.needsUpdate = true;
+}
+function updateLeaves(dt){
+  if(!LEAF.mesh) return;
+  const indoor = PLAYER.inHome || PLAYER.inStore || PLAYER.inPrem || PLAYER.inStation || STATION.riding;
+  LEAF.mesh.visible = !indoor; if(indoor) return;
+  LEAF.t -= dt;
+  if(LEAF.t <= 0){ LEAF.t = 1.5; const cx = cam.target.x, cz = cam.target.z; LEAF.near = LEAF.trees.filter(t => Math.abs(t.x - cx) < 40 && Math.abs(t.z - cz) < 40); }
+  const wind = Math.sin(T*.3)*.4 + .25, dm = LEAF.dummy;
+  for(let i=0;i<LEAF.N;i++){ const d = LEAF.data[i];
+    if(d.y < -10 || d.rest > 4){ if(Math.random() < dt*1.5) leafSpawn(d, i); else { dm.position.set(0, -60, 0); dm.updateMatrix(); LEAF.mesh.setMatrixAt(i, dm.matrix); continue; } }
+    if(d.y > d.g + .03){ d.y -= d.vy*dt; d.x += (Math.sin(T*d.f + d.ph)*d.amp + wind)*dt; d.z += Math.cos(T*d.f*.7 + d.ph)*d.amp*.5*dt; d.rx += d.sp*dt; d.ry += d.sp*.7*dt; d.g = groundAt(d.x, d.z); }
+    else { d.y = d.g + .03; d.rest += dt; d.rx = Math.PI/2; }
+    dm.position.set(d.x, d.y, d.z); dm.rotation.set(d.rx, d.ry, Math.sin(T*d.f + d.ph)*.6);
+    const sc = d.rest > 3 ? Math.max(.01, 4 - d.rest) : 1; dm.scale.setScalar(sc);
+    dm.updateMatrix(); LEAF.mesh.setMatrixAt(i, dm.matrix);
+  }
+  LEAF.mesh.instanceMatrix.needsUpdate = true;
+}
 /* ======================= 행복모터스 (자동차 매장 + 고급 자동차 모델) ======================= */
 // 가상 브랜드 '행복모터스'. 차 앞쪽 = 로컬 +x (내 차와 같은 방향). 매장은 연장된 길 x 62.5~82.5 에 있어요.
 const CAR_MODELS = {
@@ -2781,6 +2908,7 @@ const sbox = (w,h,d,mat,x,y,z,p=scene) => mesh(new THREE.BoxGeometry(w,h,d), typ
 const scyl = (rt,rb,h,mat,x,y,z,p=scene,seg=12) => mesh(new THREE.CylinderGeometry(rt,rb,h,seg), typeof mat==='string'?M(mat):mat, x,y,z,p,false);
 function glowMat(c, e){ const m = new THREE.MeshLambertMaterial({color:c, emissive:e||c, emissiveIntensity:.12}); (W.nightGlow = W.nightGlow || []).push(m); return m; }
 function ginkgo(x, z, s=1){ // 11월 노란 은행나무
+  regTree(x, z, 2.6*s, .9*s, pick(['#f2c230','#f5cf45','#e9b524','#d9a441']));
   cyl(.11*s,.15*s,1.5*s,M('#6b4a30'),x,.75*s,z,scene,8);
   mesh(new THREE.ConeGeometry(.95*s, 2.4*s, 10), M(pick(['#f2c230','#f5cf45','#e9b524'])), x, 2.6*s, z);
   sph(.5*s, M('#f7d75a'), x+.3*s, 2.0*s, z+.2*s, scene, 8);
@@ -2991,7 +3119,7 @@ function collide(P, R=.32, extra=null, room=null){
   else if(room==='prem'){ P.x = clamp(P.x, PX-5.6, PX+5.6); P.z = clamp(P.z, -4.3, 4.3); }
   else if(room==='station'){ P.x = clamp(P.x, STX-17.4, STX+17.4); P.z = clamp(P.z, -3.6, 11.4); }
   else if(room==='store'){ const sh = curShop(), b = sh.bounds; P.x = clamp(P.x, sh.X+b[0], sh.X+b[1]); P.z = clamp(P.z, b[2], b[3]); }
-  else { P.x = clamp(P.x, -110, 110); P.z = clamp(P.z, -34, 16.8); }
+  else { P.x = clamp(P.x, -110, 110); P.z = clamp(P.z, -34, 104); }
   for(const r of (room==='station' ? stationObst() : room==='prem' ? PREM_OBST : room==='home' ? HOME_OBST : room==='store' ? curShop().obst : extra ? OBST.concat(extra) : OBST)){
     const nx = clamp(P.x, r[0], r[2]), nz = clamp(P.z, r[1], r[3]);
     const dx = P.x - nx, dz = P.z - nz, d = Math.hypot(dx, dz);
@@ -3129,8 +3257,8 @@ function updatePlayer(dt){
     P.ry += diff * Math.min(1, dt*14);
     setPose(p, 'walk', dt);
   } else setPose(p, 'stand', dt);
-  p.g.position.x = P.x; p.g.position.z = P.z; p.g.rotation.y = P.ry;
-  if(P.follow) cam.target.lerp(new THREE.Vector3(P.x, 0, P.z + .3), Math.min(1, dt*3));
+  p.g.position.x = P.x; p.g.position.z = P.z; p.g.rotation.y = P.ry; p.g.position.y = groundAt(P.x, P.z); // ⛰️ 산 높이 따라 걷기
+  if(P.follow) cam.target.lerp(new THREE.Vector3(P.x, p.g.position.y, P.z + .3), Math.min(1, dt*3));
   // 근처 안내
   const {cust, fac} = nearestTargets();
   let h = '';
@@ -3167,6 +3295,7 @@ function updatePlayer(dt){
     const w = cust.wishes[cust.idx];
     h = w==='milk' ? `<b>E</b> ${cust.name}에게 우유 주기` : selected===cust ? '<b>E</b> 선택 취소' : `<b>E</b> ${cust.name} 안내 (${WISH_NAME[w]})`;
   }
+  if(!h){ const gy = groundAt(P.x, P.z); if(gy > .8) h = `⛰️ 행복산 해발 ${Math.round(gy*10)}m${gy > MTN.H*.85 ? ' · 정상이에요!' : ''}`; }
   P.hintEl.innerHTML = h; P.hintEl.style.display = h ? '' : 'none';
 }
 function setupPlayerInput(){
@@ -5325,6 +5454,7 @@ function updateCamera(){
   const r = Math.max(21, 31/aspect) * cam.zoom;
   const t = cam.target;
   camera.position.set(t.x + r*Math.cos(cam.pitch)*Math.sin(cam.yaw), t.y + r*Math.sin(cam.pitch), t.z + r*Math.cos(cam.pitch)*Math.cos(cam.yaw));
+  const gy = mtnY(camera.position.x, camera.position.z) + 2.5; if(camera.position.y < gy) camera.position.y = gy; // 산 속으로 카메라가 안 들어가게
   camera.lookAt(t);
 }
 function loop(ts){
@@ -5346,6 +5476,8 @@ function loop(ts){
     updateRail(dt);
     updateJob(dt);
     updateMilkTruck(dt);
+    updateLeaves(dt);
+    if(S.phase !== 'menu') checkSummit();
   }
   updateCamera();
   followSun();

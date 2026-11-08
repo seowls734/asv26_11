@@ -265,6 +265,12 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
 .rl-tk{position:relative;background:#fff;border-radius:12px;padding:8px 46px 8px 10px;margin:4px 0;border-left:6px solid #1f5fae;font-size:13px}
 .rl-tk b{display:block;font-family:'Jua';font-weight:400}.rl-tk small{opacity:.75}
 .rl-qr{position:absolute;right:8px;top:8px;width:30px;height:30px;background:repeating-conic-gradient(#24323a 0 25%,#fff 0 50%) 0 0/10px 10px;border:2px solid #24323a}
+#travel.ride{display:block;background:none;pointer-events:none}
+.rd-bar{position:absolute;left:50%;top:10px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(255,250,242,.95);border:3px solid #24323a;border-radius:14px;padding:6px 12px;font-family:'Jua';font-size:14px;width:min(640px,94%);pointer-events:auto;box-shadow:0 3px 0 #24323a}
+.rd-bar .tv-track{flex:1}.rd-bar .tv-track i{font-size:22px;top:-15px}.rd-bar small{font-family:'Gowun Dodum';opacity:.7}
+.rd-bar button{font-family:'Jua';border:2px solid #24323a;border-radius:9px;background:#ffe48a;cursor:pointer;padding:3px 8px}
+.rd-tip{position:absolute;left:50%;bottom:62px;transform:translateX(-50%);background:rgba(36,50,58,.85);color:#fff;border-radius:10px;padding:4px 12px;font-size:13px}
+#rdDark{position:absolute;inset:0;background:#05070a;opacity:0;transition:opacity .4s;pointer-events:none}
 </style>
 </head>
 <body>
@@ -808,6 +814,7 @@ function buildOutside(){
   buildFoodAlley();
   buildStationExterior();
   buildStationInterior();
+  buildTrainInterior();
   buildSeoul();
   box(1.6,.1,.45,M('#a8703c'),6,.45,9.1); box(1.6,.4,.06,M('#a8703c'),6,.7,8.9);
   box(.06,.42,.4,M('#555'),5.3,.21,9.1); box(.06,.42,.4,M('#555'),6.7,.21,9.1);
@@ -2040,13 +2047,9 @@ function boardTrain(type){
   if(!tk) return toast(`🎫 ${RAIL[type].name} 승차권이 없어요 — 📱 휴대폰 행복레일 앱에서 예매해요`);
   const tr = STATION.trains[type]; if(tr.state !== 'wait') return toast('열차가 아직 들어오는 중이에요');
   S.tickets = tickets().filter(t => t !== tk);
+  tr.state = 'go'; tr.t = 0; sfx.bell();
   STATION.riding = {tk, type, t:0};
-  PLAYER.p.g.visible = false; tr.state = 'go'; tr.t = 0;
-  speak(`${tk.dest}행 열차가 출발합니다`); sfx.bell();
-  const R = RAIL[type], ov = $('#travel');
-  ov.innerHTML = `<div class="tv-card"><div class="tv-top">${R.name} · ${tk.seat}</div><div class="tv-line"><span>서울</span><div class="tv-track"><i id="tvTrain">🚄</i></div><span>${tk.dest}</span></div><div class="tv-view" id="tvView"></div><div class="tv-msg">창밖 풍경을 보며 달리는 중… 🎶</div></div>`;
-  ov.classList.remove('hidden');
-  STATION.was = S.paused;
+  rideStart(STATION.riding); cam.target.set(TIX, 0, 0);
 }
 function updateRail(dt){
   if(!STATION.trains.HTX) return;
@@ -2062,19 +2065,17 @@ function updateRail(dt){
   }
   const R = STATION.riding;
   if(R){
-    R.t += dt; const k = Math.min(1, R.t/8);
-    const tv = $('#tvTrain'); if(tv) tv.style.left = (k*100) + '%';
-    const vw = $('#tvView'); if(vw && Math.floor(R.t*2) !== R.last){ R.last = Math.floor(R.t*2); vw.textContent = ['🌾🏠🌳⛰️🌾', '🏞️🐄🌳🌾🏡', '🌉🏙️🌳🏞️🌸', '⛰️🌲🌲🏔️🌳', '🌊🏖️⛵🌅🐟'][R.last % 5]; }
-    if(R.t >= 8.5){
-      STATION.riding = null; $('#travel').classList.add('hidden');
+    R.t += dt; rideUpdate(R, dt);
+    if(R.t >= R.dur){
+      STATION.riding = null; rideEnd(R);
       const [dest, price, ico, gift, msg] = RAIL[R.type].dests.find(d => d[0] === R.tk.dest);
       bagAdd({id:'gift_' + dest, ico, name:gift, kind:'toy', desc:`${dest} 여행 기념품`});
       const fun = funReward({key:'rail@' + dest}, 'trip', 15);
-      speak(`${dest}에 도착했습니다`);
+      speak(`${dest}역에 도착했습니다. 안녕히 가십시오.`);
+      STATION.trains[R.type].state = 'back'; STATION.trains[R.type].off = (R.type === 'HTX' ? -1 : 1)*60;
+      PLAYER.z = -2.6; PLAYER.x = STX + (R.type === 'HTX' ? -8 : 8); cam.target.set(PLAYER.x, 0, PLAYER.z); PLAYER.follow = true;
       placePause();
       showModal(`<h2>🎉 ${dest} 도착!</h2><p>${msg}</p><p>🎁 기념품 <b>${ico} ${gift}</b>을(를) 가방에 넣었어요. ${fun}</p><p style="font-size:13px;opacity:.75">돌아오는 열차를 타고 다시 서울역 승강장에 내렸어요.</p>`, [['좋아요!', placeClose, 'primary']]);
-      STATION.trains[R.type].state = 'back'; STATION.trains[R.type].off = (R.type === 'HTX' ? -1 : 1)*60;
-      PLAYER.p.g.visible = true; PLAYER.z = -2.6; PLAYER.x = STX + (R.type === 'HTX' ? -8 : 8);
     }
   }
 }
@@ -2095,6 +2096,107 @@ function railApp(){
   });
   scr.querySelectorAll('[data-app]').forEach(b => b.onclick = () => { SEC.app = b.dataset.app; renderPhone(); });
 }
+/* ======================= 🚄 열차 객실 (진짜 탄 것처럼) ======================= */
+// 탑승하면 멀리 떨어진 객실(TIX)로 이동 → 창가 좌석에 앉아 1인칭으로 창밖을 봐요.
+// 창밖 풍경(들판·나무·전신주·집·산)이 속도에 맞춰 지나가고, 터널·흔들림·덜컹 소리·안내 방송·속도 전광판.
+const TIX = 1400;
+const RIDE = {scen:[], ground:null, seatMat:null, headMat:null, info:null, infoCtx:null, infoTex:null, light:null, npcs:[], v:0, clack:0};
+function buildTrainInterior(){
+  const g = group(TIX, 0, 0), L = 22, Wd = 3.2;
+  const floorT = canvasTex(128, 128, (c, w, h) => { c.fillStyle = '#8a8f94'; c.fillRect(0, 0, w, h); c.fillStyle = '#7d828a'; for(let i=0;i<8;i++) c.fillRect(0, i*16, w, 2); });
+  const fl = plane(L, Wd, sMat(floorT), 0, .01, 0, g); fl.rotation.x = -Math.PI/2; fl.receiveShadow = true;
+  const aisle = plane(L, .7, M('#4a5560'), 0, .015, 0, g); aisle.rotation.x = -Math.PI/2;
+  // 벽: 창 아래·위 + 창 사이 기둥 (양쪽)
+  const wallM = M('#eef0f2');
+  [-1, 1].forEach(sd => { const z = sd*Wd/2;
+    box(L, 1.0, .12, wallM, 0, .5, z, g); box(L, .9, .12, wallM, 0, 2.45, z, g);
+    for(let x=-L/2;x<=L/2 + .01;x+=2.2) box(.5, 1.0, .14, wallM, x, 1.5, z, g);
+    const gl = plane(L, 1.0, new THREE.MeshPhongMaterial({color:'#dff4ff', transparent:true, opacity:.12, shininess:120, specular:'#ffffff', depthWrite:false, side:THREE.DoubleSide}), 0, 1.5, z, g); gl.renderOrder = 3;
+    box(L, .08, .35, M('#c8ccd2'), 0, 2.15, z - sd*.2, g);   // 짐칸 선반
+  });
+  box(L, .1, Wd, M('#f4f6f8'), 0, 2.9, 0, g).material = new THREE.MeshLambertMaterial({color:'#f4f6f8', transparent:true, opacity:.25});
+  box(.15, 2.9, Wd, wallM, -L/2, 1.45, 0, g); box(.15, 2.9, Wd, wallM, L/2, 1.45, 0, g);
+  // 앞쪽 안내 전광판
+  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 128; RIDE.infoCtx = cv.getContext('2d');
+  RIDE.infoTex = new THREE.CanvasTexture(cv);
+  const info = mesh(new THREE.PlaneGeometry(2.6, .33), new THREE.MeshBasicMaterial({map:RIDE.infoTex}), -L/2 + .09, 2.35, 0, g, false); info.rotation.y = Math.PI/2;
+  box(.06, .42, 2.7, M('#1d1d1d'), -L/2 + .05, 2.35, 0, g);
+  // 좌석 (2+2, 통로 가운데) — 앞(-x)을 보고 앉음
+  RIDE.seatMat = new THREE.MeshLambertMaterial({color:'#1f5fae'}); RIDE.headMat = M('#ffffff');
+  for(let x=-L/2 + 1.4; x<L/2 - .6; x+=1.15) [-1.1, -.58, .58, 1.1].forEach(z => {
+    const sg = group(x, 0, z, g);
+    box(.5, .1, .48, RIDE.seatMat, 0, .45, 0, sg); box(.12, .75, .48, RIDE.seatMat, .26, .85, 0, sg); box(.06, .2, .4, RIDE.headMat, .2, 1.15, 0, sg);
+    box(.5, .4, .06, M('#5b6670'), 0, .22, 0, sg);
+    if(Math.abs(z) > 1) box(.3, .04, .2, M('#c8ccd2'), .05, .62, -Math.sign(z)*.25, sg);   // 팔걸이
+  });
+  // 다른 승객들
+  [[-6.5, .58], [-4.2, -1.1], [-1.9, 1.1], [1.6, -.58], [3.9, 1.1], [6.2, -1.1], [8.5, .58]].forEach(([x, z]) => {
+    const p = makePerson({name:'승객', skin:pick(['#f1c49c','#f6cfa9','#e9b98f']), hair:pick(['#2a2a2a','#6b4226','#3a2a20','#c8ccd2']), style:pick(['short','long','bun']), towel:pick(['#4a90d9','#e85d5d','#6fcf97','#f2c94c','#9b51e0']), shirt:pick(['#4a90d9','#e85d5d','#6fcf97','#f2c94c','#9b51e0']), s:rnd(.85, 1)});
+    p.g.position.set(TIX + x - .05, 0, z); p.g.rotation.y = -Math.PI/2; p.pose = 'sit'; W.npcs.push({p, type:'owner'}); RIDE.npcs.push(p);
+  });
+  RIDE.light = new THREE.PointLight('#fff4dc', 1.0, 18); RIDE.light.position.set(TIX, 2.6, 0); scene.add(RIDE.light);
+  // ── 창밖 풍경 (양쪽) ──
+  const field = canvasTex(256, 256, (c, w, h) => { c.fillStyle = '#7fb85e'; c.fillRect(0, 0, w, h); for(let i=0;i<16;i++){ c.fillStyle = i%2 ? '#8cc56a' : '#6fa84f'; c.fillRect(0, i*16, w, 16); } c.fillStyle = '#c9b46a'; c.fillRect(0, 96, w, 30); }, 40, 8);
+  RIDE.ground = mesh(new THREE.PlaneGeometry(260, 160), new THREE.MeshLambertMaterial({map:field}), TIX, -.6, 0, scene, false); RIDE.ground.rotation.x = -Math.PI/2;
+  const bed = plane(260, 4, M('#6b6258'), TIX, -.55, 0); bed.rotation.x = -Math.PI/2;
+  const add = (o, x, sp) => { o.position.x = TIX + x; scene.add(o); RIDE.scen.push({o, sp}); };
+  for(let i=0;i<26;i++){ [-1, 1].forEach(sd => { // 전신주
+    const p = new THREE.Group(); mesh(new THREE.CylinderGeometry(.08, .1, 5.5, 6), M('#8a8f94'), 0, 2.2, 0, p, false); mesh(new THREE.BoxGeometry(.1, .1, 1.6), M('#8a8f94'), 0, 4.6, -sd*.6, p, false);
+    p.position.z = sd*3.4; add(p, -120 + i*9.4, 1); }); }
+  for(let i=0;i<70;i++){ const sd = Math.random() < .5 ? -1 : 1, d = rnd(6, 34), t = new THREE.Group(); // 나무·집
+    if(Math.random() < .7){ mesh(new THREE.CylinderGeometry(.15, .2, 1.6, 6), M('#6b4a30'), 0, .3, 0, t, false); mesh(new THREE.ConeGeometry(rnd(.9, 1.6), rnd(2.4, 3.6), 8), M(pick(['#4e9a59','#5aa864','#f2c230','#c8642e','#3f8a4c'])), 0, 2.1, 0, t, false); }
+    else { mesh(new THREE.BoxGeometry(rnd(2, 4), rnd(1.6, 2.6), rnd(2, 3)), M(pick(['#f4efe4','#e9e2d0','#dfe8f2','#f3e3d3'])), 0, .6, 0, t, false); const r = mesh(new THREE.ConeGeometry(2.2, 1.2, 4), M(pick(['#c0392b','#3d7cc9','#5b6670'])), 0, 2.2, 0, t, false); r.rotation.y = Math.PI/4; }
+    t.position.z = sd*d; add(t, rnd(-120, 120), d < 14 ? 1 : .55); }
+  for(let i=0;i<16;i++){ const sd = i%2 ? -1 : 1, m = mesh(new THREE.ConeGeometry(rnd(14, 26), rnd(14, 26), 7), M(pick(['#7d9480','#6f8a72','#8aa08c'])), 0, 4, sd*rnd(55, 75), scene, false); m.position.y = 3; add(m, -120 + i*16, .12); }
+  RIDE.tunnel = new THREE.Group(); [-1, 1].forEach(sd => mesh(new THREE.BoxGeometry(60, 6, .5), M('#2c3136'), 0, 2.5, sd*2.3, RIDE.tunnel, false)); mesh(new THREE.BoxGeometry(60, .5, 5), M('#2c3136'), 0, 5.3, 0, RIDE.tunnel, false);
+  RIDE.tunnel.visible = false; RIDE.tunnel.position.set(TIX + 200, 0, 0); scene.add(RIDE.tunnel);
+}
+function drawRideInfo(R, kmh, left){
+  const c = RIDE.infoCtx; if(!c) return; const w = 1024, h = 128;
+  c.fillStyle = '#0b0e11'; c.fillRect(0, 0, w, h);
+  c.font = FONT(50); c.textBaseline = 'middle';
+  c.fillStyle = R.type === 'HTX' ? '#5fb4ff' : '#c8a2ff'; c.fillText(`🚄 ${RAIL[R.type].name}`, 20, 64);
+  c.fillStyle = '#ffd34d'; c.fillText(`${R.tk.dest}행`, 420, 64);
+  c.fillStyle = '#7dff9a'; c.fillText(`${kmh} km/h`, 600, 64);
+  c.fillStyle = '#ffffff'; c.fillText(left > 3 ? `도착 ${Math.ceil(left)}초 전` : '곧 도착', 830, 64);
+  RIDE.infoTex.needsUpdate = true;
+}
+function rideStart(R){
+  RIDE.seatMat.color.set(R.type === 'HTX' ? '#1f5fae' : '#5a2a8a');
+  R.wasFP = FP.on; R.dur = 22;
+  PLAYER.inTrain = true; PLAYER.x = TIX + .7; PLAYER.z = -1.1; PLAYER.ry = -Math.PI/2;
+  PLAYER.p.g.position.set(PLAYER.x, 0, PLAYER.z); PLAYER.p.g.rotation.y = PLAYER.ry; PLAYER.p.pose = 'sit';
+  setPose(PLAYER.p, 'sit', 1);
+  FP.on = true; FP.pitch = -.08; cam.yaw = Math.PI*.25;   // 창밖과 앞쪽을 반쯤 보는 각도
+  $('#fpBtn').classList.add('on'); $('#fpUi').classList.add('hidden');
+  const ov = $('#travel'); ov.className = 'ride';
+  ov.innerHTML = `<div class="rd-bar"><b>🚄 ${RAIL[R.type].name}</b><span>서울</span><div class="tv-track"><i id="tvTrain">🚄</i></div><span>${R.tk.dest}</span><small>${R.tk.seat}</small><button id="rdSkip">⏩ 도착까지 건너뛰기</button></div><div class="rd-tip">🖱️ 드래그해서 객실과 창밖을 둘러보세요</div><div id="rdDark"></div>`;
+  $('#rdSkip').onclick = () => { R.t = Math.max(R.t, R.dur - 3.5); };
+  speak(`이 열차는 ${R.tk.dest}행 ${RAIL[R.type].name.split(' ')[1]} 열차입니다. 곧 출발합니다.`);
+}
+function rideUpdate(R, dt){
+  const t = R.t, k = clamp(Math.min(t/3.5, (R.dur - t)/3.5), 0, 1), v = 48*k*k;
+  RIDE.v = v;
+  PLAYER.p.g.position.set(PLAYER.x, 0, PLAYER.z); setPose(PLAYER.p, 'sit', dt);
+  RIDE.scen.forEach(s => { s.o.position.x += v*s.sp*dt; if(s.o.position.x > TIX + 120) s.o.position.x -= 240; });
+  RIDE.ground.material.map.offset.x -= v*dt/6.5;
+  // 터널 (중간쯤 3초)
+  const tun = t > R.dur*.45 && t < R.dur*.45 + 3;
+  RIDE.tunnel.visible = tun; RIDE.tunnel.position.x = TIX;
+  const dk = $('#rdDark'); if(dk) dk.style.opacity = tun ? .55 : 0;
+  // 덜컹덜컹
+  RIDE.clack -= dt; if(v > 3 && RIDE.clack <= 0){ RIDE.clack = clamp(9/v, .18, .9); beep(68, .06, 'square', .018); setTimeout(() => beep(62, .05, 'square', .015), 90); }
+  if(!R.annIn && R.dur - t < 5){ R.annIn = true; speak(`이번 역은 ${R.tk.dest}, ${R.tk.dest}역입니다. 내리실 문은 오른쪽입니다.`); }
+  const tv = $('#tvTrain'); if(tv) tv.style.left = (Math.min(1, t/R.dur)*100) + '%';
+  if(Math.floor(t*4) !== R.inf){ R.inf = Math.floor(t*4); drawRideInfo(R, Math.round(v/48*300), R.dur - t); }
+}
+function rideEnd(R){
+  PLAYER.inTrain = false; FP.on = R.wasFP; $('#fpBtn').classList.toggle('on', FP.on); $('#fpUi').classList.toggle('hidden', !FP.on);
+  if(!FP.on){ camera.fov = 38; camera.updateProjectionMatrix(); PLAYER.tag.style.visibility = ''; PLAYER.p.g.visible = true; cam.yaw = .32; cam.pitch = .92; }
+  RIDE.tunnel.visible = false; $('#travel').className = 'hidden'; $('#travel').innerHTML = '';
+  PLAYER.p.pose = 'stand';
+}
+function updateRideCamSway(){ if(STATION.riding){ camera.rotateZ(Math.sin(T*6.5)*.004*(RIDE.v/48)); camera.position.y += Math.sin(T*13)*.006*(RIDE.v/48); } }
 /* ======================= 행복모터스 (자동차 매장 + 고급 자동차 모델) ======================= */
 // 가상 브랜드 '행복모터스'. 차 앞쪽 = 로컬 +x (내 차와 같은 방향). 매장은 연장된 길 x 62.5~82.5 에 있어요.
 const CAR_MODELS = {
@@ -4909,6 +5011,7 @@ function updateFPCamera(){
   camera.position.copy(FP.v);
   FP.look.set(FP.v.x - sy*cp, FP.v.y + Math.sin(FP.pitch), FP.v.z - cy*cp);
   camera.lookAt(FP.look);
+  updateRideCamSway();
   const hint = $('#fpHint'); hint.innerHTML = P.hintEl.innerHTML; hint.style.display = P.hintEl.style.display === 'none' || !P.hintEl.innerHTML ? 'none' : '';
 }
 function updateCamera(){

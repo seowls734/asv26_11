@@ -71,6 +71,7 @@
 15. **프리미엄**: `PREM_PRICE = 1,000,000`, `premDoor`, `enterPrem/exitPrem`, `soakJacuzzi`, 숙면 보너스(`S.sleptPrem`)
 16. **관리자**: `ADMIN`, `openAdmin`, `adminAction`
 16-10. **🚄 서울역·고속열차**: 실제 브랜드 대신 가상 열차 `RAIL` = HTX 행복고속(파랑, 1번 승강장: 대전·부산·강릉) / BTX 별빛고속(보라, 2번: 광주·목포·여수). 바깥 역사 `buildStationExterior`(100, -12, 문 앞 (100, -6.3)), 내부 방 `STX = 800`(`buildStationInterior`: 대리석 대합실·출발 전광판·의자·역 편의점·개찰구·승강장·선로·터널, 열차 `makeTrain`/`makeTrainCar`). `PLAYER.inStation`, `collide` room 'station'(`stationObst()` — 승차권 없으면 개찰구 막힘 `gateOpen`). 승차권 `S.tickets`: 휴대폰 '🚄 행복레일' 앱(`railApp`)에서 예매. 승강장 열차 옆 E → `boardTrain` → 열차 출발 + `#travel` 여행 화면 8초 → 도착 모달·기념품(가방)·`funReward` → 열차 복귀(`updateRail`).
+16-11. **🚄 열차 객실(탑승)**: `TIX = 1400` 객실 방(`buildTrainInterior`: 2+2 좌석·창문·짐칸·앞 전광판 `drawRideInfo`·승객 NPC), 창밖 풍경 `RIDE.scen`(전신주·나무·집·산, 속도별 시차)·움직이는 들판·터널. `boardTrain` → `rideStart`(창가 좌석 1인칭, `#travel.ride` 상단 진행바·건너뛰기) → `rideUpdate`(가속·감속 22초, 덜컹 소리, 안내 방송, 흔들림 `updateRideCamSway`) → `rideEnd` + 도착 모달.
 16-9. **🍜 서울 맛집 골목**: `FOOD_ALLEY`(10곳: 광장시장 빈대떡·신당동 떡볶이·명동 칼국수·종로 닭한마리·왕십리 곱창·장충동 족발·마포 돼지갈비·을지로 노가리·남대문 갈치조림·신림 순대타운 — 실제 상호 아님, 동네+음식), `buildFoodAlley`(x -110~-56 간격 6, 가게 앞 z -11.5, 벽돌 골목·홍등 줄·입구 아치 x -53.5·인기 맛집 줄 서는 손님·포장마차 3곳 호떡/붕어빵/어묵). 각 가게는 `MENUS`/`PLACE_T`/`addPlace`로 등록 → E로 먹기·가방·알바.
 16-8. **🎆 행복 광장·불꽃축제·서울 야경**: `PLAZA`(중심 -37, -11: 원형 포장·분수 물줄기 `PLAZA.jets`·전구 줄·벤치·은행나무·LED 전광판·'행복 광장' 아치·관람객 `PLAZA.crowd`), `buildPlaza`(buildOutside에서). 안내판 `addPlace('행복 광장')` → `ACTS.festival`(`startFestival`: 40초 밤+불꽃) / `ACTS.nightview`(`startNightView`: 25초 밤+강 건너 전망). 불꽃 `FW`(`fwLaunch` 로켓 → `fwBurst` Points 입자: peony/ring/willow/double, 섬광 PointLight `FW.light`), `updateFireworks`. 밤 강제: `FW.night`. 영업 끝난 밤엔 가끔 저절로, 전시 시연에도 불꽃 장면.
 16-7. **🎪 전시(부스) 모드·🏆 1일 챌린지**: `?booth` 주소 또는 설정 '전시 모드'(`SET.booth`) → `BOOTH`. 시작 화면에서 25초 무입력 → `startAttract()`(손님 모드로 동네를 살리고 `TOUR` 카메라 투어 7초씩, `#attract` 오버레이: 제목·장면 설명·시작 버튼·TOP5·QR, 밤 장면은 `ATTRACT.night`), 아무 입력 → `#title`로 새로고침. 게임 중 90초 무입력 → `#attract`로 새로고침. 시작 화면 '1일 챌린지' → `startChallenge`(`S.challenge`), 하루 끝 `endChallenge` 점수(`challengeScore`) → 이름 등록 → `showRankBoard`(`localStorage['hbt_rank']` TOP10). QR은 `QR_SVG`(인라인 SVG, 사이트 주소).
@@ -151,3 +152,4 @@
 29. 🎆 행복 광장(분수·전구·관람객), 불꽃축제 이벤트, 서울 야경 감상
 30. 🍜 서울 맛집 골목 (맛집 10곳 + 포장마차 3곳, 줄 서는 손님)
 31. 🚄 서울역(내부·개찰구·승강장) + 가상 고속열차 HTX·BTX, 휴대폰 행복레일 앱 승차권 예매 → 탑승 여행·기념품
+32. 🚄 열차 객실 탑승 연출 (창가 1인칭·창밖 풍경·터널·흔들림·안내 방송)

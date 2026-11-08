@@ -910,7 +910,7 @@ function buildRoadExt(){
   let k = 0;
   [[47, 116], [-116, -45]].forEach(([x0, x1]) => {
     for(let x = x0 + 3.2; x < x1 - 3; x += 7.2){
-      if(x > 60 && x < 85) continue; // 행복모터스 매장 자리
+      if((x > 60 && x < 85) || (x > 44 && x < 61) || (x > -67 && x < -51)) continue; // 행복모터스·소방서·경찰서 자리
       const [name, bg, fg] = shops[k++ % shops.length], h = rnd(4, 9), d = rnd(4.6, 5.6), z = 6.6 - d/2;
       building(x, z, 6.2, d, h, pick(bases), {sign:name, signBg:bg, signFg:fg, awning: Math.random()<.6 ? bg : null, rows: Math.max(2, Math.round(h/1.8))});
       // 세로 간판 (밤에 빛남)
@@ -2221,38 +2221,48 @@ const INCIDENT_SPOTS = [['행복탕 앞', 2, 9], ['행복 편의점 앞', -15, 9
 const FIRE_SITU = ['쓰레기통에서 불이 났어요', '음식점 주방 연기 신고가 들어왔어요', '전기 콘센트 화재 신고예요', '고양이가 나무에 올라가 내려오지 못하고… 앗 불까지!'];
 const POLICE_SITU = ['가방 날치기 도둑이 도망치고 있어요', '편의점 과자 도둑이 달아났어요', '자전거 도둑이 나타났어요', '수상한 사람이 남의 차를 기웃거려요'];
 function buildJobStations(){
-  // ── 소방서 ──
-  const fx = 51, fz = -12, fw = 10, fd = 8;
-  const brick = canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#b8402e'; g.fillRect(0, 0, w, h); g.fillStyle = '#e8d8c8'; for(let r=0;r<8;r++){ g.fillRect(0, r*16, w, 2); for(let c=0;c<4;c++) g.fillRect(((c*32) + (r%2)*16) % w, r*16, 2, 16); } }, 5, 3);
-  box(fw, 6, fd, sMat(brick), fx, 3, fz); box(fw + .4, .4, fd + .4, M('#5a1d14'), fx, 6.2, fz);
-  box(2.2, 10, 2.2, sMat(brick), fx + fw/2 - 1.1, 5, fz - fd/2 + 1.1); box(2.6, .4, 2.6, M('#5a1d14'), fx + fw/2 - 1.1, 10.2, fz - fd/2 + 1.1); // 망루
-  [-2.4, 2.4].forEach(dx => { box(3.4, 3.6, .1, M('#e9ecef'), fx + dx, 1.8, fz + fd/2 + .02); for(let y=.4;y<3.6;y+=.45) box(3.3, .05, .12, M('#c8ccd2'), fx + dx, y, fz + fd/2 + .05); });
-  const fsg = new THREE.MeshLambertMaterial({map:textTex('🚒 행복 소방서 119', {w:640, h:110, bg:'#d9342b', fg:'#ffffff', border:'#ffffff', font:60}), emissive:'#ffffff', emissiveIntensity:.15});
-  (W.nightGlow = W.nightGlow || []).push(fsg); mesh(new THREE.PlaneGeometry(6, 1.0), fsg, fx, 4.7, fz + fd/2 + .05, scene, false);
-  OBST.push([fx - fw/2 - .1, fz - fd/2 - .1, fx + fw/2 + .1, fz + fd/2 + .1]);
-  // ── 경찰서 ──
-  const px = 68, pz = -14, pw = 10, pd = 8;
-  building(px, pz, pw, pd, 7, '#eef2f7', {cols:6, rows:4, trim:'#1f3b73', roof:'#1f3b73'});
-  box(pw, .5, .3, M('#1f3b73'), px, 2.9, pz + pd/2 + .1);
-  const psg = new THREE.MeshLambertMaterial({map:textTex('🚓 행복 경찰서 112', {w:640, h:110, bg:'#1f3b73', fg:'#ffffff', border:'#ffd34d', font:60}), emissive:'#ffffff', emissiveIntensity:.15});
-  (W.nightGlow = W.nightGlow || []).push(psg); mesh(new THREE.PlaneGeometry(6, 1.0), psg, px, 5.6, pz + pd/2 + .05, scene, false);
-  mesh(new THREE.CircleGeometry(.55, 5), M('#ffd34d'), px - 4, 5.6, pz + pd/2 + .06, scene, false).rotation.z = Math.PI/2;   // 별 배지
-  [-.9, .9].forEach(dx => { box(.15, 2.6, .15, M('#c8ccd2'), px + dx, 1.3, pz + pd/2 + .6); });
-  const lamp = sph(.25, glowMat('#5fb4ff', '#3d7cff'), px, 2.8, pz + pd/2 + .6, scene, 10);
-  OBST.push([px - pw/2 - .1, pz - pd/2 - .1, px + pw/2 + .1, pz + pd/2 + .1]);
-  // 직원 NPC
-  [[fx - 2.4, fz + fd/2 + 1.2, '#d9342b'], [fx + 2.6, fz + fd/2 + 1.4, '#d9342b'], [px + 2.5, pz + pd/2 + 1.3, '#1f3b73']].forEach(([x, z, c]) => {
-    const p = makePerson({name:'대원', skin:pick(['#f1c49c','#e9b98f']), hair:'#2a2a2a', style:'short', towel:c, shirt:c, s:1}); p.g.position.set(x, 0, z); p.pose = 'stand'; W.npcs.push({p, type:'owner'});
-    box(.5, .14, .5, M(c === '#d9342b' ? '#ffd34d' : '#1f3b73'), 0, .28, 0, p.head);
-    OBST.push([x - .3, z - .3, x + .3, z + .3]); });
-  // 출동 차량 (평소엔 숨김)
+  // ── 🚒 행복 소방서 (큰길 오른쪽, 주차장 옆) : 본관 + 차고 3칸 + 망루, 앞마당에 소방차 2대 ──
+  const fx = 53, fw = 15, fz0 = -4.2, fz1 = 3.0, fh = 9;   // 본관 z -4.2 ~ 3.0, 앞마당 3.0 ~ 6.6
+  const brick = canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#b8402e'; g.fillRect(0, 0, w, h); g.fillStyle = '#e8d8c8'; for(let r=0;r<8;r++){ g.fillRect(0, r*16, w, 2); for(let c=0;c<4;c++) g.fillRect(((c*32) + (r%2)*16) % w, r*16, 2, 16); } }, 7, 4);
+  const fcz = (fz0 + fz1)/2, fd = fz1 - fz0;
+  box(fw, fh, fd, sMat(brick), fx, fh/2, fcz); box(fw + .5, .5, fd + .5, M('#5a1d14'), fx, fh + .25, fcz);
+  box(fw, .35, .3, M('#f4f6f8'), fx, 4.6, fz1 + .1);                                       // 흰 띠
+  const tx = fx + fw/2 - 1.6, tz = fz0 + 1.6;
+  box(3, 15, 3, sMat(brick), tx, 7.5, tz); box(3.6, .5, 3.6, M('#5a1d14'), tx, 15.25, tz); // 망루
+  box(3.2, 1.4, 3.2, new THREE.MeshLambertMaterial({color:'#cfefff', transparent:true, opacity:.6}), tx, 14.2, tz);
+  const siren = sph(.35, glowMat('#ff3a3a', '#ff2020'), tx, 16, tz, scene, 10);
+  [-4.6, 0, 4.6].forEach((dx, i) => {                                                      // 차고 3칸 (셔터 반쯤 열림)
+    box(3.8, 4.0, .12, M('#3b2a22'), fx - 1.2 + dx, 2.0, fz1 + .03);
+    box(3.6, 1.6, .14, M('#e9ecef'), fx - 1.2 + dx, 3.2, fz1 + .06); for(let y=2.5;y<4;y+=.35) box(3.5, .05, .16, M('#c8ccd2'), fx - 1.2 + dx, y, fz1 + .07);
+    plane(.9, .5, sMat(textTex(`${i + 1}`, {w:96, h:64, bg:'#ffd34d', fg:'#5a1d14', border:false, font:46})), fx - 1.2 + dx, 4.4, fz1 + .16);
+  });
+  const fsg = new THREE.MeshLambertMaterial({map:textTex('🚒 행복 소방서  119', {w:900, h:130, bg:'#d9342b', fg:'#ffffff', border:'#ffffff', font:78}), emissive:'#ffffff', emissiveIntensity:.15});
+  (W.nightGlow = W.nightGlow || []).push(fsg); mesh(new THREE.PlaneGeometry(10, 1.45), fsg, fx - 1.2, 6.6, fz1 + .2, scene, false);
+  const apron = plane(fw, 3.6, M('#c9c4b8'), fx, .015, (fz1 + 6.6)/2); apron.rotation.x = -Math.PI/2;
+  for(let x=fx - fw/2 + .5;x<fx + fw/2;x+=1.2) box(.6, .02, .12, M('#ffd34d'), x, .03, 6.45);
+  OBST.push([fx - fw/2 - .1, fz0 - .1, fx + fw/2 + .1, fz1 + .1], [tx - 1.6, tz - 1.6, tx + 1.6, tz + 1.6]);
+  [fx - 5.8, fx - 1.2].forEach(x => { const t = makeFireTruck(); t.visible = true; t.position.set(x, 0, 4.9); t.rotation.y = -Math.PI/2; OBST.push([x - .85, 3.1, x + .85, 6.4]); });
+  [[fx + 3.6, 5.6], [fx + 5.2, 5.2]].forEach(([x, z]) => { const p = makePerson({name:'소방대원', skin:pick(['#f1c49c','#e9b98f']), hair:'#2a2a2a', style:'short', towel:'#d9342b', shirt:'#d9342b', s:1}); p.g.position.set(x, 0, z); p.pose = 'stand'; W.npcs.push({p, type:'owner'}); box(.5, .14, .5, M('#ffd34d'), 0, .28, 0, p.head); OBST.push([x - .3, z - .3, x + .3, z + .3]); });
+  addPlace('행복 소방서', fx + 4.4, 7.6, null, 2.4);
+  // ── 🚓 행복 경찰서 (큰길 왼쪽, 맛집 골목 입구 옆) : 2층 본관 + 기둥 현관 + 국기 게양대, 앞마당에 경찰차 2대 ──
+  const px = -58.5, pw = 15, pz0 = -2.4, pz1 = 3.2, ph = 10;
+  const pcz = (pz0 + pz1)/2, pd = pz1 - pz0;
+  building(px, pcz, pw, pd, ph, '#eef2f7', {cols:8, rows:5, trim:'#1f3b73', roof:'#1f3b73'});
+  box(pw, .6, .3, M('#1f3b73'), px, 3.4, pz1 + .1);
+  box(5.4, .4, 2.2, M('#f4f6f8'), px, 3.8, pz1 + 1.1); [-2.4, 2.4].forEach(dx => box(.35, 3.8, .35, M('#f4f6f8'), px + dx, 1.9, pz1 + 2.0));   // 현관 캐노피·기둥
+  box(3.2, 2.8, .12, new THREE.MeshPhongMaterial({color:'#cfefff', transparent:true, opacity:.55}), px, 1.4, pz1 + .08);
+  const psg = new THREE.MeshLambertMaterial({map:textTex('🚓 행복 경찰서  112', {w:900, h:130, bg:'#1f3b73', fg:'#ffffff', border:'#ffd34d', font:78}), emissive:'#ffffff', emissiveIntensity:.15});
+  (W.nightGlow = W.nightGlow || []).push(psg); mesh(new THREE.PlaneGeometry(10, 1.45), psg, px, 7.8, pz1 + .05, scene, false);
+  mesh(new THREE.CircleGeometry(.9, 5), M('#ffd34d'), px - 6, 7.8, pz1 + .06, scene, false).rotation.z = Math.PI/2;
+  sph(.3, glowMat('#5fb4ff', '#3d7cff'), px - 2.4, 4.0, pz1 + 2.0, scene, 10); sph(.3, glowMat('#5fb4ff', '#3d7cff'), px + 2.4, 4.0, pz1 + 2.0, scene, 10);
+  const apron2 = plane(pw, 3.4, M('#c9c4b8'), px, .015, (pz1 + 6.6)/2); apron2.rotation.x = -Math.PI/2;
+  [px + 5.8].forEach(x => { cyl(.06, .08, 7, M('#c8ccd2'), x, 3.5, 6.2, scene, 8); const fl = plane(1.4, .9, sMat(textTex('112', {w:160, h:100, bg:'#1f3b73', fg:'#ffffff', border:false, font:56})), x + .72, 6.4, 6.2); fl.material.side = THREE.DoubleSide; OBST.push([x - .15, 6.05, x + .15, 6.35]); });
+  OBST.push([px - pw/2 - .1, pz0 - .1, px + pw/2 + .1, pz1 + .1], [px - 2.6, pz1 + 1.8, px - 2.2, pz1 + 2.2], [px + 2.2, pz1 + 1.8, px + 2.6, pz1 + 2.2]);
+  [px - 5.6, px - 4.0].forEach((x, i) => { const c = makePoliceCar(); c.visible = true; c.position.set(x + (i ? 0 : 0), 0, 5.2 - i*0); c.rotation.y = -Math.PI/2; OBST.push([x - .65, 3.9, x + .65, 6.5]); });
+  [[px + 3.6, 5.8]].forEach(([x, z]) => { const p = makePerson({name:'경찰관', skin:'#f1c49c', hair:'#2a2a2a', style:'short', towel:'#1f3b73', shirt:'#1f3b73', s:1}); p.g.position.set(x, 0, z); p.pose = 'stand'; W.npcs.push({p, type:'owner'}); box(.5, .14, .5, M('#1f3b73'), 0, .28, 0, p.head); OBST.push([x - .3, z - .3, x + .3, z + .3]); });
+  addPlace('행복 경찰서', px, 7.6, null, 2.4);
+  // 출동 차량 (평소엔 숨김) + 목표 빛기둥
   JOB.veh.fire = makeFireTruck(); JOB.veh.police = makePoliceCar();
-  // 서 앞 전시용 차량
-  const showF = makeFireTruck(); showF.visible = true; showF.position.set(fx - 2.4, 0, fz + fd/2 + 3.4); showF.rotation.y = Math.PI/2; OBST.push([fx - 3.4, fz + fd/2 + 1.6, fx - 1.4, fz + fd/2 + 5.2]);
-  const showP = makePoliceCar(); showP.visible = true; showP.position.set(px - 3, 0, pz + pd/2 + 2.6); showP.rotation.y = 0; OBST.push([px - 4.3, pz + pd/2 + 1.9, px - 1.7, pz + pd/2 + 3.3]);
-  addPlace('행복 소방서', fx + 2.4, fz + fd/2 + 1.0, null, 2.0);
-  addPlace('행복 경찰서', px, pz + pd/2 + 1.6, null, 2.0);
-  // 목표 빛기둥
   JOB.beacon = new THREE.Group();
   mesh(new THREE.CylinderGeometry(1.4, 1.4, 40, 20, 1, true), new THREE.MeshBasicMaterial({color:'#ffd34d', transparent:true, opacity:.25, depthWrite:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending}), 0, 20, 0, JOB.beacon, false);
   const ring = mesh(new THREE.TorusGeometry(2.2, .12, 8, 32), new THREE.MeshBasicMaterial({color:'#ff5a3a'}), 0, .1, 0, JOB.beacon, false); ring.rotation.x = Math.PI/2;

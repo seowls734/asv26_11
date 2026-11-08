@@ -863,6 +863,7 @@ function buildOutside(){
   buildMountain();
   buildRiver();
   buildBldgInterior();
+  buildSubway();
   buildLeaves();
   buildSeoul();
   box(1.6,.1,.45,M('#a8703c'),6,.45,9.1); box(1.6,.4,.06,M('#a8703c'),6,.7,8.9);
@@ -1289,6 +1290,104 @@ function showTheEnd(){
     <div class="te-b"><button id="teAgain">🔁 처음부터 다시</button><button id="teCont">🏡 계속 둘러보기</button></div><small>만든 사람 · 해커톤 팀 행복탕 · ${myName()}</small></div>`;
   $('#teAgain').onclick = () => { location.hash = 'title'; location.reload(); };
   $('#teCont').onclick = () => { el.classList.add('hidden'); END.on = false; PLAYER.follow = true; cam.zoom = 1; cam.yaw = .32; cam.pitch = .92; };
+}
+/* ======================= 🚇 지하철 타고 가기 ======================= */
+// 한강공원역 입구에서 E → '지하철 타기' → 목적지 고르기 → 지하철 객실(SUBX)에서 손잡이를 잡고 1인칭으로 서서 가요.
+// 터널 불빛이 휙휙, 손잡이 흔들흔들, 다음 역 안내 방송 → 승강장이 들어오며 멈춤 → 띵동, 도착!
+const SUBX = 2200;
+const SUB = {riding:null, lights:[], straps:[], station:null, sign:null, info:null, infoTex:null, infoCtx:null, v:0, clack:0};
+const SUB_DESTS = [['시청', '🏛️', '덕수궁 돌담길을 산책했어요 🍂', '돌담길 엽서'], ['광화문', '👑', '광장에서 사진을 찍었어요 📸', '광장 기념 배지'], ['홍대', '🎸', '거리 공연을 보고 박수 쳤어요 👏', '버스킹 피크'], ['강남', '🛍️', '큰 쇼핑몰을 구경했어요 ✨', '쇼핑백 키링']];
+function buildSubway(){
+  const g = group(SUBX, 0, 0), L = 16, Wd = 2.8;
+  const fl = plane(L, Wd, M('#b8bfc6'), 0, .01, 0, g); fl.rotation.x = -Math.PI/2;
+  const wall = M('#e9edf0');
+  [-1, 1].forEach(sd => { const z = sd*Wd/2;
+    box(L, .9, .1, wall, 0, .45, z, g); box(L, .6, .1, wall, 0, 2.2, z, g);
+    for(let x=-L/2;x<=L/2 + .01;x+=2) box(.25, 1.0, .12, wall, x, 1.4, z, g);
+    const gl = plane(L, 1.0, new THREE.MeshPhongMaterial({color:'#dff4ff', transparent:true, opacity:.1, depthWrite:false, side:THREE.DoubleSide, shininess:120, specular:'#fff'}), 0, 1.4, z, g); gl.renderOrder = 3;
+    box(L - 2, .42, .45, M('#3fae5a'), 0, .45, z - sd*.32, g); box(L - 2, .5, .08, M('#3fae5a'), 0, .78, z - sd*.1, g);   // 긴 의자
+    [-5, 0, 5].forEach(x => box(1.3, 1.9, .06, M('#c8ccd2'), x, .95, z - sd*.02, g));                                 // 문
+    for(let x=-7;x<=7;x+=.8){ const st = new THREE.Group(); st.position.set(x, 2.15, sd*.75); g.add(st); box(.03, .35, .03, M('#c8ccd2'), 0, -.17, 0, st); const r = mesh(new THREE.TorusGeometry(.07, .015, 6, 12), M('#f4f6f8'), 0, -.4, 0, st, false); SUB.straps.push({g:st, ph:x*.7}); }
+  });
+  box(L, .05, .05, M('#c8ccd2'), 0, 2.15, .75, g); box(L, .05, .05, M('#c8ccd2'), 0, 2.15, -.75, g);
+  [-6, -2, 2, 6].forEach(x => cyl(.035, .035, 2.4, M('#d0d4d8'), x, 1.2, 0, g, 8));
+  box(L, .08, Wd, new THREE.MeshLambertMaterial({color:'#f4f6f8', transparent:true, opacity:.25}), 0, 2.5, 0, g);
+  box(.1, 2.5, Wd, wall, -L/2, 1.25, 0, g); box(.1, 2.5, Wd, wall, L/2, 1.25, 0, g);
+  // 노선도 (창 위)
+  [-1, 1].forEach(sd => { const rm = plane(10, .35, sMat(canvasTex(1000, 36, (c, w, h) => { c.fillStyle = '#ffffff'; c.fillRect(0, 0, w, h); c.fillStyle = '#3fae5a'; c.fillRect(20, 15, w - 40, 6);
+      ['한강공원', '시청', '광화문', '홍대', '강남'].forEach((n, i) => { const x = 40 + i*230; c.fillStyle = '#fff'; c.strokeStyle = '#3fae5a'; c.lineWidth = 4; c.beginPath(); c.arc(x, 18, 9, 0, 7); c.fill(); c.stroke(); c.fillStyle = '#24323a'; c.font = FONT(20); c.fillText(n, x + 14, 26); }); })), 0, 2.05, sd*(Wd/2 - .07), g); if(sd > 0) rm.rotation.y = Math.PI; });
+  // 안내 전광판
+  const cv = document.createElement('canvas'); cv.width = 768; cv.height = 96; SUB.infoCtx = cv.getContext('2d'); SUB.infoTex = new THREE.CanvasTexture(cv);
+  const inf = mesh(new THREE.PlaneGeometry(2.2, .28), new THREE.MeshBasicMaterial({map:SUB.infoTex}), -L/2 + .07, 2.1, 0, g, false); inf.rotation.y = Math.PI/2;
+  // 승객
+  [[-6, -1.0, 'sit'], [-3.5, 1.0, 'sit'], [2.5, -1.0, 'sit'], [5.5, 1.0, 'sit'], [3.8, .3, 'stand'], [-1.8, -.3, 'stand']].forEach(([x, z, pose]) => {
+    const p = makePerson({name:'승객', skin:pick(['#f1c49c','#f6cfa9','#e9b98f']), hair:pick(['#2a2a2a','#6b4226','#3a2a20']), style:pick(['short','long','bun']), towel:pick(['#4a90d9','#e85d5d','#6fcf97','#f2c94c']), shirt:pick(['#4a90d9','#e85d5d','#6fcf97','#f2c94c','#9b51e0']), s:rnd(.85, 1)});
+    p.g.position.set(SUBX + x, 0, z); p.g.rotation.y = z < 0 ? 0 : Math.PI; p.pose = pose; if(pose === 'sit') p.seatY = .62; W.npcs.push({p, type:'owner'}); });
+  // 터널 벽 + 불빛 (움직임)
+  [-1, 1].forEach(sd => box(240, 5, .3, M('#2c3136'), SUBX, 1.5, sd*2.9));
+  for(let i=0;i<40;i++) [-1, 1].forEach(sd => { const l = box(.8, .12, .1, glowMat('#ffe9b0', '#ffd27a'), SUBX - 120 + i*6, 1.6, sd*2.72); l.material.emissiveIntensity = 1.2; SUB.lights.push(l); });
+  // 도착 승강장 (마지막에 들어옴)
+  SUB.station = new THREE.Group(); scene.add(SUB.station);
+  [-1, 1].forEach(sd => { box(40, 3.4, .3, M('#dff1f7'), 0, 1.7, sd*2.75, SUB.station); for(let x=-19;x<=19;x+=1.2) box(.04, 3.4, .32, M('#bcdbe6'), x, 1.7, sd*2.75, SUB.station);
+    box(40, .12, .32, M('#3fae5a'), 0, 2.6, sd*2.74, SUB.station);
+    for(let x=-16;x<=16;x+=8){ const sg = mesh(new THREE.PlaneGeometry(2.6, .6), new THREE.MeshBasicMaterial({color:'#ffffff'}), x, 2.1, sd*2.58, SUB.station, false); if(sd > 0) sg.rotation.y = Math.PI; SUB.signs = (SUB.signs || []).concat(sg); } });
+  SUB.station.position.set(SUBX + 300, 0, 0);
+  const pl = new THREE.PointLight('#fff4dc', 1.0, 16); pl.position.set(SUBX, 2.3, 0); scene.add(pl);
+  ACTS.subway = {label:'🚇 지하철 타기 (시청·광화문·홍대·강남)', run: pl => openSubway(pl)};
+}
+function drawSubInfo(R, left){
+  const c = SUB.infoCtx; c.fillStyle = '#0b0e11'; c.fillRect(0, 0, 768, 96); c.font = FONT(40); c.textBaseline = 'middle';
+  c.fillStyle = '#7dff9a'; c.fillText('🚇 2호선', 16, 48); c.fillStyle = '#ffd34d'; c.fillText(left > 4 ? `다음 역: ${R.dest}` : `이번 역은 ${R.dest}`, 210, 48); c.fillStyle = '#fff'; c.fillText(left > 4 ? `${Math.ceil(left)}초` : '내리실 문 ↗', 590, 48);
+  SUB.infoTex.needsUpdate = true;
+}
+function openSubway(pl){
+  const btns = SUB_DESTS.map(([d, ico]) => [`${ico} ${d}역 가기 · 1,500원`, () => { if(!payCost(1500)) return; placeClose(); startSubway(d); }]);
+  btns.push(['↩️ 뒤로', () => openPlace(pl)]);
+  showModal(`<h2>🚇 한강공원역</h2><p>교통카드를 찍고(삑!) 어디로 갈까요?</p>`, btns);
+}
+function startSubway(dest){
+  beep(1400, .06, 'square', .04);
+  const sign = SUB.signs || [];
+  const tex = textTex(`${dest}  ${({'시청':'City Hall','광화문':'Gwanghwamun','홍대':'Hongdae','강남':'Gangnam'})[dest]}`, {w:512, h:120, bg:'#ffffff', fg:'#24323a', border:'#3fae5a', font:48});
+  sign.forEach(s => { s.material.map = tex; s.material.needsUpdate = true; });
+  const R = SUB.riding = {dest, t:0, dur:16, wasFP:FP.on, ret:{x:PLAYER.x, z:PLAYER.z}};
+  PLAYER.inTrain = true; PLAYER.x = SUBX + .3; PLAYER.z = -.35; PLAYER.ry = 0;
+  PLAYER.p.g.position.set(PLAYER.x, 0, PLAYER.z); PLAYER.p.g.rotation.y = 0; setPose(PLAYER.p, 'stand', 1);
+  FP.on = true; FP.pitch = -.05; cam.yaw = Math.PI; cam.target.set(SUBX, 0, 0);   // 맞은편 창을 바라봄
+  $('#fpBtn').classList.add('on'); $('#fpUi').classList.add('hidden');
+  SUB.station.position.x = SUBX + 300;
+  const ov = $('#travel'); ov.className = 'ride';
+  ov.innerHTML = `<div class="rd-bar"><b>🚇 2호선</b><span>한강공원</span><div class="tv-track"><i id="tvTrain">🚇</i></div><span>${dest}</span><button id="rdSkip">⏩ 건너뛰기</button></div><div class="rd-tip">🖱️ 드래그해서 객실을 둘러보세요 · 손잡이 꽉!</div><div id="rdDark"></div>`;
+  $('#rdSkip').onclick = () => { R.t = Math.max(R.t, R.dur - 4.2); };
+  speak(`이번 열차는 ${dest} 방면 열차입니다. 출입문 닫습니다.`);
+  setTimeout(() => { beep(1046, .25, 'sine', .04); setTimeout(() => beep(784, .35, 'sine', .04), 280); }, 600);
+}
+function updateSubway(dt){
+  SUB.straps.forEach(s => { s.g.rotation.x = Math.sin(T*3 + s.ph)*.12*(SUB.v/30 + .1); s.g.rotation.z = Math.sin(T*2.3 + s.ph)*.08*(SUB.v/30); });
+  const R = SUB.riding; if(!R) return;
+  R.t += dt; const t = R.t, left = R.dur - t;
+  const k = clamp(Math.min(t/3, left/4.5), 0, 1), v = 32*k; SUB.v = v;
+  SUB.lights.forEach(l => { l.position.x += v*dt; if(l.position.x > SUBX + 120) l.position.x -= 240; });
+  // 마지막 4.5초: 다음 역 승강장이 미끄러져 들어와요
+  if(left < 4.5){ const q = 1 - left/4.5; SUB.station.position.x = SUBX - 70*(1 - q)*(1 - q); } else SUB.station.position.x = SUBX + 300;
+  const P = PLAYER, p = P.p; p.g.position.set(P.x, 0, P.z); setPose(p, 'stand', dt); p.armR.rotation.x = -2.9; p.armR.rotation.z = .1;
+  SUB.clack -= dt; if(v > 3 && SUB.clack <= 0){ SUB.clack = clamp(8/v, .22, .9); beep(60, .05, 'square', .015); }
+  if(!R.ann && left < 5){ R.ann = true; speak(`이번 역은 ${R.dest}, ${R.dest}역입니다. 내리실 문은 오른쪽입니다.`); }
+  const tv = $('#tvTrain'); if(tv) tv.style.left = (Math.min(1, t/R.dur)*100) + '%';
+  if(Math.floor(t*4) !== R.inf){ R.inf = Math.floor(t*4); drawSubInfo(R, left); }
+  if(t >= R.dur){
+    beep(1046, .2, 'sine', .04); setTimeout(() => beep(1318, .3, 'sine', .04), 220);
+    SUB.riding = null; SUB.v = 0; PLAYER.inTrain = false;
+    FP.on = R.wasFP; $('#fpBtn').classList.toggle('on', FP.on); $('#fpUi').classList.toggle('hidden', !FP.on);
+    if(!FP.on){ camera.fov = 38; camera.updateProjectionMatrix(); PLAYER.tag.style.visibility = ''; PLAYER.p.g.visible = true; cam.yaw = .32; cam.pitch = .92; }
+    $('#travel').className = 'hidden'; $('#travel').innerHTML = ''; p.armR.rotation.set(0, 0, 0);
+    P.x = R.ret.x; P.z = R.ret.z + .6; cam.target.set(P.x, 0, P.z); P.follow = true;
+    const [d, ico, msg, gift] = SUB_DESTS.find(x => x[0] === R.dest);
+    bagAdd({id:'sub_' + d, ico, name:gift, kind:'toy', desc:`${d}역 나들이 기념`});
+    const fun = funReward({key:'subway@' + d}, 'trip', 10);
+    placePause();
+    showModal(`<h2>🚇 ${d}역 도착!</h2><p>${ico} ${msg}</p><p>🎁 <b>${gift}</b>을(를) 가방에 넣었어요. ${fun}</p><p style="font-size:13px;opacity:.75">지하철을 타고 다시 한강공원역으로 돌아왔어요.</p>`, [['좋아요!', placeClose, 'primary']]);
+  }
 }
 /* ======================= 🎒 가방 · ⚙️ 설정(닉네임·화질) ======================= */
 // 입력창에 글자를 칠 때는 게임 키(WASD·E 등)가 움직이지 않게 막아요 (가장 먼저 등록되는 리스너)
@@ -2434,7 +2533,7 @@ function rideEnd(R){
   RIDE.tunnel.visible = false; $('#travel').className = 'hidden'; $('#travel').innerHTML = '';
   PLAYER.p.pose = 'stand';
 }
-function updateRideCamSway(){ if(STATION.riding){ camera.rotateZ(Math.sin(T*6.5)*.004*(RIDE.v/48)); camera.position.y += Math.sin(T*13)*.006*(RIDE.v/48); } }
+function updateRideCamSway(){ if(STATION.riding || SUB.riding){ const vv = STATION.riding ? RIDE.v/48 : SUB.v/32; camera.rotateZ(Math.sin(T*6.5)*.004*vv); camera.position.y += Math.sin(T*13)*.006*vv; } }
 /* ======================= 🚒 소방서 · 🚓 경찰서 · 직업과 출동 ======================= */
 // 소방서(51, -12) · 경찰서(68, -14)에서 E → 입사. 직업이 있으면 가끔 📱 휴대폰으로 출동 지령이 와요.
 // 📱 '🚨 출동' 앱에서 [출동하기] → 소방차/경찰차가 내 옆에 나와요 → 목표 지점(빛기둥)까지 운전 →
@@ -2824,7 +2923,7 @@ function leafSpawn(d, i){
 }
 function updateLeaves(dt){
   if(!LEAF.mesh) return;
-  const indoor = PLAYER.inHome || PLAYER.inStore || PLAYER.inPrem || PLAYER.inStation || PLAYER.inBldg || STATION.riding;
+  const indoor = PLAYER.inHome || PLAYER.inStore || PLAYER.inPrem || PLAYER.inStation || PLAYER.inBldg || STATION.riding || SUB.riding;
   LEAF.mesh.visible = !indoor; if(indoor) return;
   LEAF.t -= dt;
   if(LEAF.t <= 0){ LEAF.t = 1.5; const cx = cam.target.x, cz = cam.target.z; LEAF.near = LEAF.trees.filter(t => Math.abs(t.x - cx) < 40 && Math.abs(t.z - cz) < 40); }
@@ -3539,7 +3638,7 @@ function interactMain(){
   if(FISH.on){ fishClick(); return; }
   if(DRIVE.active) return exitCar();
   if(PLAYER.using) return;
-  if(STATION.riding) return;
+  if(STATION.riding || SUB.riding) return;
   if(PLAYER.inBldg){ if(nearBldgExit()) return exitBldg(); if(nearBldgCounter()) return openPlace(PLAYER.inBldg); return; }
   if(PLAYER.inStation){ if(nearStationExit()) return exitStation(); const td = nearTrainDoor(); if(td) return boardTrain(td); return; }
   if(nearStationDoor()) return enterStation();
@@ -3574,7 +3673,7 @@ function updatePlayer(dt){
   if(WAKE.on) return updateWake(dt);
   if(END.on) return updateEnding(dt);
   if(DRIVE.active) return updateCar(dt);
-  if(STATION.riding){ P.hintEl.style.display = 'none'; return; }
+  if(STATION.riding || SUB.riding){ P.hintEl.style.display = 'none'; return; }
   if(FISH.on){ if(k.KeyW || k.KeyA || k.KeyS || k.KeyD || k.ArrowUp || k.ArrowDown || k.ArrowLeft || k.ArrowRight) stopFishing(); else { P.hintEl.style.display = 'none'; p.g.position.set(P.x, groundAt(P.x, P.z), P.z); p.g.rotation.y = P.ry; return; } }
   if(PLAYER.using){
     const a = SLOTS[PLAYER.using.k][PLAYER.using.i], sl = S.fac[PLAYER.using.k].slots[PLAYER.using.i];
@@ -5831,6 +5930,7 @@ function loop(ts){
     updateLeaves(dt);
     updateFishing(dt);
     updateBldg(dt);
+    updateSubway(dt);
     if(S.phase !== 'menu') checkSummit();
   }
   updateCamera();

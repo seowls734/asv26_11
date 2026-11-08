@@ -244,6 +244,13 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
 .ch-score{text-align:center;background:#24323a;color:#fff;border-radius:14px;padding:10px;margin-top:10px;font-family:'Jua'}
 .ch-score small{display:block;opacity:.8}.ch-score b{display:block;font-size:40px;color:#ffe48a;font-weight:400}.ch-score span b{font-size:inherit;display:inline}
 @media (max-width:600px){ .title-ex{grid-template-columns:1fr} .at-rank{display:none} }
+/* 👁️ 1인칭 */
+#fpUi{position:absolute;inset:0;pointer-events:none;z-index:3}#fpUi.hidden{display:none}
+.fp-cross{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px rgba(36,50,58,.7)}
+.fp-hint{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);font-size:15px;background:rgba(36,50,58,.92);color:#fff;border-radius:10px;padding:5px 12px;white-space:nowrap}
+.fp-hint b{display:inline-block;background:#ffe48a;color:#24323a;border-radius:4px;padding:0 5px;font-family:'Jua';font-weight:400}
+.fp-tip{position:absolute;right:12px;top:52px;font-size:12px;background:rgba(255,250,242,.9);border:2px solid #24323a;border-radius:8px;padding:2px 8px}
+#fpBtn.on{background:#ffe48a}
 </style>
 </head>
 <body>
@@ -266,6 +273,7 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
   <div id="timebar"><i></i></div>
   <div id="stage">
     <div id="loading">♨ 목욕탕 물 데우는 중…</div>
+    <div id="fpUi" class="hidden"><div class="fp-cross"></div><div id="fpHint" class="fp-hint"></div><div class="fp-tip">👁️ 1인칭 · 드래그로 둘러보기 · V 3인칭</div></div>
     <div id="attract" class="hidden"><div class="at-top"><div class="at-logo">♨️</div><div class="at-title">행복탕 사장님</div><div class="at-sub">동네 목욕탕 3D 경영 · 생활 시뮬레이션 — 직접 해 보세요!</div></div><div id="atCap" class="at-cap"></div><div class="at-start">👆 아무 키나 누르거나 화면을 터치해서 시작!</div><div class="at-rank"><b>🏆 오늘의 사장님 TOP 5</b><div id="atRank"></div></div><div class="at-qr"><div id="atQR"></div><span>📱 내 폰으로 하기</span></div></div>
     <div id="phone" class="hidden"><div class="ph-body"><div class="ph-notch"></div><button id="phClose" title="닫기">✕</button><div class="ph-status"><span id="phTime">06:00</span><span>📶 🔋</span></div><div class="ph-screen" id="phScreen"></div><div class="ph-home" id="phHome" title="홈 화면"></div></div></div>
     <div id="wallpad" class="hidden"><div class="wp-dev"><div class="wp-brand"><span>HAENGBOK HOME</span><span>📟 월패드</span></div><div class="wp-screen"></div></div></div>
@@ -277,7 +285,7 @@ body.touch .camctl{right:auto;left:50%;transform:translateX(-50%);bottom:10px}
     <div id="fade"></div>
     <div id="basket" style="display:none"></div>
     <div id="buffs" style="display:none"></div>
-    <div class="camctl"><button id="zin" title="확대">＋</button><button id="zout" title="축소">－</button><button id="zreset" title="시점 초기화">⟲</button><button id="joyToggle" title="조이스틱 켜기/끄기">🕹️</button></div>
+    <div class="camctl"><button id="zin" title="확대">＋</button><button id="zout" title="축소">－</button><button id="zreset" title="시점 초기화">⟲</button><button id="fpBtn" title="1인칭 시점 (V)">👁️</button><button id="joyToggle" title="조이스틱 켜기/끄기">🕹️</button></div>
   </div>
   <div id="panel"></div>
   <div id="course"></div>
@@ -4435,7 +4443,35 @@ function updateHUD(){
   else { $('#money').textContent = won(S.money); $('#rep').textContent = S.rep.toFixed(1); }
   const wt = WEATHER[S.weather]; $('#weather').textContent = `${wt.icon} ${wt.name}`;
 }
+/* 👁️ 1인칭 시점: V 키 / 👁️ 버튼. 눈 높이(머리 위치)에서 바라보고, 드래그로 둘러보기, WASD는 보는 방향으로 걸어요 */
+const FP = {on:false, pitch:-.05, v:new THREE.Vector3(), look:new THREE.Vector3()};
+function toggleFP(force){
+  FP.on = force !== undefined ? force : !FP.on;
+  if(FP.on){ FP.pitch = -.05; if(DRIVE.active) cam.yaw = DRIVE.h - Math.PI/2; toast('👁️ 1인칭 시점 — 마우스 드래그로 둘러보기, V로 돌아가기'); }
+  else { PLAYER.p.g.visible = !DRIVE.active; PLAYER.tag.style.visibility = ''; camera.fov = 38; camera.updateProjectionMatrix(); toast('🎥 3인칭 시점'); }
+  $('#fpBtn').classList.toggle('on', FP.on); $('#fpUi').classList.toggle('hidden', !FP.on);
+}
+function updateFPCamera(){
+  if(camera.fov !== 70){ camera.fov = 70; camera.updateProjectionMatrix(); }
+  const P = PLAYER, D = DRIVE;
+  if(D.active){
+    const fx = Math.cos(D.h), fz = -Math.sin(D.h);
+    FP.v.set(D.x + fx*.15 + fz*.25, 1.2, D.z + fz*.15 - fx*.25);
+    const want = D.h - Math.PI/2; let d = want - cam.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); cam.yaw += d*.12;
+  } else {
+    P.p.head.getWorldPosition(FP.v); FP.v.y += .05;
+    P.p.g.visible = false;
+  }
+  P.tag.style.visibility = 'hidden';
+  const sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw), cp = Math.cos(FP.pitch);
+  FP.v.x -= sy*.12; FP.v.z -= cy*.12;
+  camera.position.copy(FP.v);
+  FP.look.set(FP.v.x - sy*cp, FP.v.y + Math.sin(FP.pitch), FP.v.z - cy*cp);
+  camera.lookAt(FP.look);
+  const hint = $('#fpHint'); hint.innerHTML = P.hintEl.innerHTML; hint.style.display = P.hintEl.style.display === 'none' || !P.hintEl.innerHTML ? 'none' : '';
+}
 function updateCamera(){
+  if(FP.on && !BOOTH.attract) return updateFPCamera();
   const aspect = stageW / stageH;
   const r = Math.max(21, 31/aspect) * cam.zoom;
   const t = cam.target;
@@ -4664,7 +4700,7 @@ function setupInput(){
     if(!g.moved) return;
     if(g.mode==='rot'){
       cam.yaw -= dx * .007;                                   // 360도 자유 회전
-      cam.pitch = clamp(cam.pitch + dy * .005, .12, 1.48);    // 거의 바닥 높이 ~ 바로 위
+      if(FP.on) FP.pitch = clamp(FP.pitch - dy * .004, -1.1, .9); else cam.pitch = clamp(cam.pitch + dy * .005, .12, 1.48);    // 거의 바닥 높이 ~ 바로 위
     } else panBy(dx, dy);
   });
   const up = e => {
@@ -4689,6 +4725,7 @@ function setupInput(){
   // 키보드로도 시점 조절: Q/E 대신 Z·C 회전, T·G 높이, +/- 확대
   window.addEventListener('keydown', e => {
     if(modalOpen()) return;
+    if(e.code==='KeyV') toggleFP();
     if(e.code==='KeyZ') cam.yaw += .12;
     if(e.code==='KeyC') cam.yaw -= .12;
     if(e.code==='KeyT') cam.pitch = clamp(cam.pitch + .08, .12, 1.48);
@@ -4698,7 +4735,8 @@ function setupInput(){
   });
   $('#zin').addEventListener('click', () => cam.zoom = clamp(cam.zoom*.85, ZMIN, ZMAX));
   $('#zout').addEventListener('click', () => cam.zoom = clamp(cam.zoom/.85, ZMIN, ZMAX));
-  $('#zreset').addEventListener('click', () => { cam.yaw = .32; cam.pitch = .92; cam.zoom = 1; PLAYER.follow = true; });
+  $('#zreset').addEventListener('click', () => { if(FP.on) toggleFP(false); cam.yaw = .32; cam.pitch = .92; cam.zoom = 1; PLAYER.follow = true; });
+  $('#fpBtn').addEventListener('click', () => toggleFP());
 }
 function init(){
   if(!window.THREE){ $('#loading').innerHTML = '3D 엔진(Three.js)을 불러오지 못했어요 😢<br><small>인터넷 연결을 확인하고 새로고침해 주세요.</small>'; return; }
